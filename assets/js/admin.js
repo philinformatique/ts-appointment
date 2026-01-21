@@ -15,7 +15,8 @@
         // Supprimer un rendez-vous
         $(document).on('click', '.delete-appointment', function(e) {
             e.preventDefault();
-            if (!confirm('Êtes-vous sûr?')) return;
+            var confirmText = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Êtes-vous sûr?']) ? tsAppointment.i18n['Êtes-vous sûr?'] : 'Êtes-vous sûr?';
+            if (!confirm(confirmText)) return;
             const appointmentId = $(this).data('id');
             deleteAppointment(appointmentId);
         });
@@ -41,14 +42,17 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        alert('Rendez-vous confirmé');
+                        var ok = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Rendez-vous confirmé']) ? tsAppointment.i18n['Rendez-vous confirmé'] : 'Rendez-vous confirmé';
+                        alert(ok);
                         location.reload();
                     } else {
-                        alert('Erreur lors de la confirmation');
+                        var err = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Erreur lors de la confirmation']) ? tsAppointment.i18n['Erreur lors de la confirmation'] : 'Erreur lors de la confirmation';
+                        alert(err);
                     }
                 },
                 error: function() {
-                    alert('Erreur serveur');
+                    var srv = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Erreur serveur']) ? tsAppointment.i18n['Erreur serveur'] : 'Erreur serveur';
+                    alert(srv);
                 }
             });
         }
@@ -69,14 +73,17 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        alert('Rendez-vous supprimé');
+                        var del = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Rendez-vous supprimé']) ? tsAppointment.i18n['Rendez-vous supprimé'] : 'Rendez-vous supprimé';
+                        alert(del);
                         location.reload();
                     } else {
-                        alert('Erreur lors de la suppression');
+                        var derr = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Erreur lors de la suppression']) ? tsAppointment.i18n['Erreur lors de la suppression'] : 'Erreur lors de la suppression';
+                        alert(derr);
                     }
                 },
                 error: function() {
-                    alert('Erreur serveur');
+                    var srv = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Erreur serveur']) ? tsAppointment.i18n['Erreur serveur'] : 'Erreur serveur';
+                    alert(srv);
                 }
             });
         }
@@ -97,7 +104,8 @@
                     displayAppointmentModal(response);
                 },
                 error: function() {
-                    alert('Erreur lors du chargement');
+                    var loadErr = (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Erreur lors du chargement']) ? tsAppointment.i18n['Erreur lors du chargement'] : 'Erreur lors du chargement';
+                    alert(loadErr);
                 }
             });
         }
@@ -107,10 +115,10 @@
             const locationLabels = tsAppointment.locationLabels || {};
 
             const statusLabels = {
-                'pending': 'En attente',
-                'confirmed': 'Confirmé',
-                'completed': 'Complété',
-                'cancelled': 'Annulé'
+                'pending': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['En attente']) ? tsAppointment.i18n['En attente'] : 'En attente',
+                'confirmed': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Confirmé']) ? tsAppointment.i18n['Confirmé'] : 'Confirmé',
+                'completed': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Complété']) ? tsAppointment.i18n['Complété'] : 'Complété',
+                'cancelled': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Annulé']) ? tsAppointment.i18n['Annulé'] : 'Annulé'
             };
 
             const dateTime = new Date(appointment.appointment_date + 'T' + appointment.appointment_time);
@@ -137,35 +145,35 @@
                         max-width: 500px;
                         width: 90%;
                     " class="appointment-modal">
-                        <h2 style="margin-top: 0; margin-bottom: 20px; color: #007cba;">Détails du rendez-vous</h2>
+                        <h2 style="margin-top: 0; margin-bottom: 20px; color: #007cba;">" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Détails du rendez-vous']) ? tsAppointment.i18n['Détails du rendez-vous'] : 'Détails du rendez-vous') + "</h2>
                         
                         <div style="margin-bottom: 15px;">
-                            <strong>Nom:</strong> ${appointment.client_name}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Nom:']) ? tsAppointment.i18n['Nom:'] : 'Nom:') + "</strong> ${appointment.client_name}
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Email:</strong> ${appointment.client_email}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Email:']) ? tsAppointment.i18n['Email:'] : 'Email:') + "</strong> ${appointment.client_email}
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Téléphone:</strong> ${appointment.client_phone}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Téléphone:']) ? tsAppointment.i18n['Téléphone:'] : 'Téléphone:') + "</strong> ${appointment.client_phone}
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Date:</strong> ${formattedDate} à ${formattedTime}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Date:']) ? tsAppointment.i18n['Date:'] : 'Date:') + "</strong> ${formattedDate} à ${formattedTime}
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <strong>Type:</strong> ${locationLabels[appointment.appointment_type] || appointment.appointment_type}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Type:']) ? tsAppointment.i18n['Type:'] : 'Type:') + "</strong> ${locationLabels[appointment.appointment_type] || appointment.appointment_type}
                         </div>
                         ${appointment.client_address ? `
                         <div style="margin-bottom: 15px;">
-                            <strong>Adresse:</strong> ${appointment.client_address}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Adresse:']) ? tsAppointment.i18n['Adresse:'] : 'Adresse:') + "</strong> ${appointment.client_address}
                         </div>
                         ` : ''}
                         ${appointment.notes ? `
                         <div style="margin-bottom: 15px;">
-                            <strong>Notes:</strong> ${appointment.notes}
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Notes:']) ? tsAppointment.i18n['Notes:'] : 'Notes:') + "</strong> ${appointment.notes}
                         </div>
                         ` : ''}
                         <div style="margin-bottom: 15px;">
-                            <strong>Statut:</strong> <span style="
+                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Statut:']) ? tsAppointment.i18n['Statut:'] : 'Statut:') + "</strong> <span style="
                                 display: inline-block;
                                 padding: 4px 8px;
                                 border-radius: 4px;
@@ -183,7 +191,7 @@
                                 border-radius: 4px;
                                 cursor: pointer;
                                 font-weight: 600;
-                            ">Fermer</button>
+                            ">" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Fermer']) ? tsAppointment.i18n['Fermer'] : 'Fermer') + "</button>
                         </div>
                     </div>
                 </div>

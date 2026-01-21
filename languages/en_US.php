@@ -1,0 +1,33 @@
+<?php
+// Simple runtime i18n mapping for en_US used by localized JS
+return array(
+    'Chargement...' => 'Loading...',
+    'Erreur lors du chargement des créneaux' => 'Error loading slots',
+    'Aucun créneau disponible pour cette date' => 'No slots available for this date',
+    'Veuillez remplir tous les champs obligatoires' => 'Please fill all required fields',
+    '✓ Rendez-vous réservé avec succès! Vous recevrez une confirmation par email.' => '✓ Appointment booked successfully! You will receive a confirmation email.',
+    'Erreur lors de la réservation' => 'Error booking appointment',
+    'La vérification Turnstile est indisponible sur ce navigateur.' => 'Turnstile verification is unavailable on this browser.',
+    'Merci de valider le contrôle anti-robot.' => 'Please complete the anti-bot verification.',
+    'Erreur lors du chargement' => 'Error loading',
+    'Êtes-vous sûr?' => 'Are you sure?',
+    'Rendez-vous confirmé' => 'Appointment confirmed',
+    'Erreur lors de la confirmation' => 'Error confirming appointment',
+    'Erreur serveur' => 'Server error',
+    'Rendez-vous supprimé' => 'Appointment deleted',
+    'Erreur lors de la suppression' => 'Error deleting appointment',
+    'Détails du rendez-vous' => 'Appointment details',
+    'Nom:' => 'Name:',
+    'Email:' => 'Email:',
+    'Téléphone:' => 'Phone:',
+    'Date:' => 'Date:',
+    'Type:' => 'Type:',
+    'Adresse:' => 'Address:',
+    'Notes:' => 'Notes:',
+    'Statut:' => 'Status:',
+    'Fermer' => 'Close',
+    'En attente' => 'Pending',
+    'Confirmé' => 'Confirmed',
+    'Complété' => 'Completed',
+    'Annulé' => 'Cancelled'
+);

@@ -107,7 +107,19 @@ class TS_Appointment {
         }
 
         wp_enqueue_script('ts-appointment-frontend', TS_APPOINTMENT_URL . 'assets/js/frontend.js', $deps, TS_APPOINTMENT_VERSION, true);
-        
+
+        // Load runtime i18n mapping from languages/en_US.php when available
+        $runtime_i18n = array();
+        if (in_array(get_locale(), array('en_US','en_CA'))) {
+            $php_i18n_file = TS_APPOINTMENT_DIR . 'languages/en_US.php';
+            if (file_exists($php_i18n_file)) {
+                $maybe = include $php_i18n_file;
+                if (is_array($maybe)) {
+                    $runtime_i18n = $maybe;
+                }
+            }
+        }
+
         wp_localize_script('ts-appointment-frontend', 'tsAppointment', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             // REST nonce pour authentification cookie quand l'utilisateur est connecté
@@ -120,6 +132,7 @@ class TS_Appointment {
             'currencyPosition' => get_option('ts_appointment_currency_position', 'right'),
             'turnstileEnabled' => ($turnstile_enabled && $turnstile_site_key && $turnstile_secret_key) ? 1 : 0,
             'turnstileSiteKey' => $turnstile_site_key,
+            'i18n' => $runtime_i18n
         ));
     }
 
@@ -143,11 +156,24 @@ class TS_Appointment {
             }
         }
         
+        // Load runtime i18n mapping for admin JS
+        $admin_i18n = array();
+        if (in_array(get_locale(), array('en_US','en_CA'))) {
+            $php_i18n_file = TS_APPOINTMENT_DIR . 'languages/en_US.php';
+            if (file_exists($php_i18n_file)) {
+                $maybe = include $php_i18n_file;
+                if (is_array($maybe)) {
+                    $admin_i18n = $maybe;
+                }
+            }
+        }
+
         wp_localize_script('ts-appointment-admin', 'tsAppointment', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'restNonce' => wp_create_nonce('wp_rest'),
             'restUrl' => rest_url('ts-appointment/v1/'),
             'locationLabels' => $location_labels,
+            'i18n' => $admin_i18n
         ));
     }
 

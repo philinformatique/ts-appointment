@@ -155,6 +155,23 @@
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row"><label for="google_send_updates"><?php echo esc_html__('Notifications Google Agenda', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <select id="google_send_updates" name="google_send_updates">
+                            <option value="none" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'none'); ?>><?php echo esc_html__('Ne pas envoyer (none)', 'ts-appointment'); ?></option>
+                            <option value="externalOnly" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'externalOnly'); ?>><?php echo esc_html__('Envoyer aux invités externes seulement (externalOnly)', 'ts-appointment'); ?></option>
+                            <option value="all" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'all'); ?>><?php echo esc_html__('Envoyer à tous (all)', 'ts-appointment'); ?></option>
+                        </select>
+                        <p class="description"><?php echo esc_html__('Contrôle du paramètre sendUpdates passé à l\'API Google Calendar pour éviter l\'envoi d\'invitations automatiques.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="google_email_reminders"><?php echo esc_html__('Rappels email dans Google', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <label><input type="checkbox" id="google_email_reminders" name="google_email_reminders" value="1" <?php checked(get_option('ts_appointment_google_email_reminders'), 0, false); ?>> <?php echo esc_html__('Autoriser les rappels par email depuis l\'événement Google (par défaut désactivé)', 'ts-appointment'); ?></label>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row"><label for="google_client_id"><?php echo esc_html__('Client ID', 'ts-appointment'); ?></label></th>
                     <td>
                         <input type="text" id="google_client_id" name="google_client_id" value="<?php echo esc_attr(get_option('ts_appointment_google_client_id')); ?>" class="regular-text">

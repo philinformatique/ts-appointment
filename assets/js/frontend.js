@@ -25,6 +25,100 @@
         let turnstileToken = '';
         let turnstileWidgetId = null;
 
+        // Initialize progressive reveal UI and mobile interactions
+        function initProgressiveReveal() {
+            // Hide everything except service selector initially
+            const $allGroups = $form.find('.form-group, .form-row, .location-extra, .form-actions, .service-price-large');
+            $allGroups.hide();
+            $serviceId.closest('.form-group').show();
+
+            const $locGroup = $('#ts-locations').closest('.form-group');
+            $locGroup.hide();
+            $locationExtras.hide();
+
+            // Hide date/time and time slots
+            $appointmentDate.closest('.form-row').hide();
+            $appointmentTimeSlots.closest('.form-group').hide();
+
+            $('.form-actions').hide();
+            $priceBox.hide();
+
+            // Reveal locations after selecting a service
+            $serviceId.on('change.reveal', function(){
+                $locGroup.show();
+                $locGroup[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            // When a location is selected, reveal extras and date
+            $(document).on('change.reveal', 'input[name="appointment_type"]', function(){
+                const key = $(this).val();
+                $locationExtras.hide();
+                const $target = $('#loc-extra-' + key);
+                if ($target.length) {
+                    $target.show();
+                    $target.find('[required]').prop('required', true);
+                }
+                $appointmentDate.closest('.form-row').show();
+                $appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            // Reveal times after date is picked (fetch will populate)
+            $appointmentDate.on('change.reveal', function(){
+                $appointmentTimeSlots.closest('.form-group').show();
+                $appointmentTimeSlots[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            // Enhance selection to reveal submit and price
+            const _origSelectTimeSlot = window.selectTimeSlot || null;
+            // If selectTimeSlot exists as function, wrap it; otherwise update later via event
+            $(document).on('tsSlotSelected.reveal', function(e, $btn){
+                $('.form-actions').show();
+                $priceBox.show();
+                $('.form-actions')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+
+            // Swipe handling on time slots for day navigation
+            let touchStartX = null;
+            let touchStartY = null;
+            $appointmentTimeSlots.on('touchstart', function(e){
+                const t = e.originalEvent.touches[0];
+                touchStartX = t.clientX;
+                touchStartY = t.clientY;
+            });
+            $appointmentTimeSlots.on('touchend', function(e){
+                if (touchStartX === null) return;
+                const t = e.originalEvent.changedTouches[0];
+                const dx = t.clientX - touchStartX;
+                const dy = t.clientY - touchStartY;
+                touchStartX = null;
+                touchStartY = null;
+                if (Math.abs(dx) > 40 && Math.abs(dy) < 80) {
+                    if (dx < 0) {
+                        if ($('.day-next').length) { $('.day-next').trigger('click'); }
+                        $appointmentTimeSlots.trigger('tsNextDay');
+                    } else {
+                        if ($('.day-prev').length) { $('.day-prev').trigger('click'); }
+                        $appointmentTimeSlots.trigger('tsPrevDay');
+                    }
+                }
+            });
+
+            // Accessibility: keyboard activate
+            $appointmentTimeSlots.on('keydown', '.time-slot', function(e){
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    $(this).trigger('click');
+                }
+            });
+
+            // When slots are populated, enlarge and make accessible
+            $(document).on('tsSlotsPopulated', function(){
+                $appointmentTimeSlots.find('.time-slot').addClass('time-slot-large').attr('tabindex', 0);
+            });
+        }
+
+        initProgressiveReveal();
+
         // Afficher/masquer les champs supplémentaires selon le lieu
         $(document).on('change', 'input[name="appointment_type"]', function() {
             const key = $(this).val();
@@ -57,7 +151,8 @@
 
         // Appliquer les bornes min/max sur la date
         setDateBounds();
-
+        // call init after bounds so date element exists
+        // already called above to setup reveal handlers
         if (turnstileEnabled && turnstileSiteKey && $turnstile.length) {
             initTurnstile();
         }
@@ -73,6 +168,8 @@
             $appointmentTimeSlots.find('.time-slot').removeClass('active');
             $btn.addClass('active');
             $appointmentTime.val($btn.data('time'));
+            // Notify progressive reveal logic that a slot was selected
+            try { $(document).trigger('tsSlotSelected', [$btn]); } catch (e) {}
         }
 
         // Charger les créneaux disponibles via API
@@ -83,7 +180,7 @@
                 data: { service_id: serviceId, date: date },
                 beforeSend: function(xhr) {
                     if (restNonce) xhr.setRequestHeader('X-WP-Nonce', restNonce);
-                    $appointmentTimeSlots.html('<div style="text-align:center;padding:20px;color:#999;">Chargement...</div>');
+                    $appointmentTimeSlots.html('<div style="text-align:center;padding:20px;color:#999;">' + __('Chargement...') + '</div>');
                 },
                 success: function(response) {
                     populateTimeSlots(response);
@@ -205,6 +302,8 @@
                     });
                 $appointmentTimeSlots.append($btn);
             });
+            // Mark slots populated (used to apply accessibility/size tweaks)
+            try { $(document).trigger('tsSlotsPopulated'); } catch (e) {}
 
             showMessage('', '');
         }
@@ -220,7 +319,18 @@
                 appointment_type: $('input[name="appointment_type"]:checked').val(),
                 appointment_date: $appointmentDate.val(),
                 appointment_time: $appointmentTime.val(),
-                client_address: $('#client_address').val(),
+                // Get client address from the active location extra container (each textarea id is client_address_<key>)
+                client_address: (function(){
+                    var apType = $('input[name="appointment_type"]:checked').val();
+                    if (apType) {
+                        var $txt = $('#loc-extra-' + apType).find('textarea[name="client_address"]');
+                        if ($txt.length) return $txt.val();
+                    }
+                    // Fallback: any visible client_address textarea
+                    var $visible = $('textarea[name="client_address"]:visible');
+                    if ($visible.length) return $visible.first().val();
+                    return $('#client_address').val() || '';
+                })(),
                 notes: $('#notes').val(),
                 extra: Object.assign({}, collectExtraFields(), collectBaseExtras())
             };
@@ -405,7 +515,12 @@
 
         // Traduction simple
         function __(text) {
-            return text; // À remplacer par un vrai système i18n si nécessaire
+            try {
+                if (typeof tsAppointment !== 'undefined' && tsAppointment.i18n && tsAppointment.i18n[text]) {
+                    return tsAppointment.i18n[text];
+                }
+            } catch (e) {}
+            return text;
         }
     });
 

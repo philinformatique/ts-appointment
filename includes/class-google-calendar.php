@@ -162,6 +162,14 @@ class TS_Appointment_Google_Calendar {
             return false;
         }
 
+        // Defensive: ensure we never forward verification tokens or sensitive fields to Google
+        if (is_object($appointment) && isset($appointment->turnstile_token)) {
+            unset($appointment->turnstile_token);
+        }
+        if (is_object($appointment) && isset($appointment->turnstile_response)) {
+            unset($appointment->turnstile_response);
+        }
+
         // Déterminer si le rendez-vous est confirmé; par défaut, on se base sur le statut stocké
         $confirmed = $is_confirmed;
         if ($confirmed === null && isset($appointment->status)) {
@@ -194,14 +202,21 @@ class TS_Appointment_Google_Calendar {
             'attendees' => array(
                 array('email' => $appointment->client_email),
             ),
-            'reminders' => array(
+        );
+
+        // Optionally include reminders: email override only when enabled in settings
+        $google_email_reminders = get_option('ts_appointment_google_email_reminders', 0);
+        if ($google_email_reminders) {
+            $event['reminders'] = array(
                 'useDefault' => false,
                 'overrides' => array(
                     array('method' => 'email', 'minutes' => 24 * 60),
                     array('method' => 'popup', 'minutes' => 30),
                 ),
-            ),
-        );
+            );
+        } else {
+            $event['reminders'] = array('useDefault' => false);
+        }
 
         if ($appointment->client_address) {
             $event['location'] = $appointment->client_address;
@@ -211,8 +226,15 @@ class TS_Appointment_Google_Calendar {
         error_log('TS Appointment: Event start: ' . $event['start']['dateTime'] . ', timeZone: ' . $event['start']['timeZone']);
         error_log('TS Appointment: Calendar ID: ' . $this->calendar_id);
 
+        // Respect sendUpdates option: none|externalOnly|all
+        $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events';
+        if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
+            $url .= '?sendUpdates=' . rawurlencode($sendUpdates);
+        }
+
         $response = wp_remote_post(
-            'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events',
+            $url,
             array(
                 'headers' => array(
                     'Authorization' => 'Bearer ' . $this->access_token,
@@ -266,6 +288,14 @@ class TS_Appointment_Google_Calendar {
             return false;
         }
 
+        // Defensive: remove any verification tokens from the appointment object
+        if (is_object($appointment) && isset($appointment->turnstile_token)) {
+            unset($appointment->turnstile_token);
+        }
+        if (is_object($appointment) && isset($appointment->turnstile_response)) {
+            unset($appointment->turnstile_response);
+        }
+
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $is_confirmed = isset($appointment->status) ? ($appointment->status === 'confirmed') : false;
         $status_prefix = $is_confirmed ? '' : '[En attente] ';
@@ -291,10 +321,18 @@ class TS_Appointment_Google_Calendar {
             'transparency' => 'opaque',
         );
 
+        // Respect sendUpdates option for updates to avoid notifying attendees unnecessarily
+        $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id;
+        if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
+            $url .= '?sendUpdates=' . rawurlencode($sendUpdates);
+        }
+
+        // Use PATCH to partially update the event (less disruptive than full PUT)
         $response = wp_remote_request(
-            'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id,
+            $url,
             array(
-                'method' => 'PUT',
+                'method' => 'PATCH',
                 'headers' => array(
                     'Authorization' => 'Bearer ' . $this->access_token,
                     'Content-Type' => 'application/json',
@@ -325,8 +363,15 @@ class TS_Appointment_Google_Calendar {
             return false;
         }
 
+        // Respect sendUpdates option for deletes to avoid notifying attendees if configured
+        $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id;
+        if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
+            $url .= '?sendUpdates=' . rawurlencode($sendUpdates);
+        }
+
         $response = wp_remote_request(
-            'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id,
+            $url,
             array(
                 'method' => 'DELETE',
                 'headers' => array(

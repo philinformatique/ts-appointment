@@ -193,6 +193,8 @@ class TS_Appointment_Database {
             'reminder_hours' => 24,
             'google_calendar_enabled' => 0,
             'google_calendar_id' => '',
+            'google_send_updates' => 'none',
+            'google_email_reminders' => 0,
             'turnstile_enabled' => 0,
             'turnstile_site_key' => '',
             'turnstile_secret_key' => '',

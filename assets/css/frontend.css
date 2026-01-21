@@ -404,16 +404,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px var(--spacing-md);
+    padding: 14px 18px;
     border: 2px solid var(--color-border-light);
-    border-radius: var(--border-radius);
+    border-radius: calc(var(--border-radius) + 4px);
     background: white;
     color: var(--color-text);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: var(--transition-fast);
     user-select: none;
-    min-height: 48px;
+    min-height: 56px;
 }
 
 .time-slot:hover:not(:disabled) {
@@ -427,6 +427,14 @@
     color: white;
     border-color: var(--color-primary);
     box-shadow: 0 4px 12px rgba(0, 124, 186, 0.3);
+}
+
+/* Larger tappable variant applied dynamically on mobile */
+.time-slot-large {
+    padding: 16px 20px;
+    font-size: 16px;
+    min-height: 64px;
+    border-radius: calc(var(--border-radius) + 6px);
 }
 
 .time-slot:disabled {

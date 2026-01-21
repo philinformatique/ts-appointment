@@ -83,6 +83,69 @@ if (!defined('ABSPATH')) {
         document.getElementById('ts-email-preview').style.display = 'block';
         window.scrollTo(0, document.getElementById('ts-email-preview').offsetTop - 20);
     }
+    
+    // Live preview: update preview as user types (WYSIWYG-aware)
+    (function(){
+        var sample = {
+            '{client_name}':'Jean Dupont',
+            '{service_name}':'Consultation',
+            '{appointment_date}':'15/03/2026',
+            '{appointment_time}':'14:00',
+            '{location}':'Au cabinet',
+            '{business_name}':document.title || 'Mon entreprise'
+        };
+
+        function applySample(str){
+            Object.keys(sample).forEach(function(p){
+                str = str.replace(new RegExp(p,'g'), sample[p]);
+            });
+            return str;
+        }
+
+        function updateLivePreviewFor(key){
+            var subjEl = document.querySelector('[name="templates['+key+'][subject]"]');
+            var subject = subjEl ? subjEl.value : '';
+            var editor = window.tinymce && tinymce.get(key + '_body');
+            var body = '';
+            if (editor) {
+                body = editor.getContent();
+            } else {
+                var ta = document.querySelector('[name="templates['+key+'][body]"]');
+                if (ta) body = ta.value;
+            }
+
+            subject = applySample(subject);
+            body = applySample(body);
+
+            var previewInner = '<div style="border-top:4px solid <?php echo esc_attr(get_option('ts_appointment_color_primary', '#007cba')); ?>; padding:18px; background:#fff; color:#333; font-family:Arial, Helvetica, sans-serif;">';
+            previewInner += '<h3 style="color:<?php echo esc_attr(get_option('ts_appointment_color_primary', '#007cba')); ?>;">'+subject+'</h3>' + body + '</div>';
+            document.getElementById('ts-email-preview-content').innerHTML = previewInner;
+            document.getElementById('ts-email-preview').style.display = 'block';
+        }
+
+        // Bind inputs and editors
+        document.addEventListener('DOMContentLoaded', function(){
+            var keys = ['client_new','client_confirmation','admin_new','client_cancellation'];
+            keys.forEach(function(k){
+                var subj = document.querySelector('[name="templates['+k+'][subject]"]');
+                if (subj) subj.addEventListener('input', function(){ updateLivePreviewFor(k); });
+
+                var ta = document.querySelector('[name="templates['+k+'][body]"]');
+                if (ta) ta.addEventListener('input', function(){ updateLivePreviewFor(k); });
+
+                // If TinyMCE present, bind to its change event
+                if (window.tinymce) {
+                    var editor = tinymce.get(k + '_body');
+                    if (editor) {
+                        editor.on('change keyup', function(){ updateLivePreviewFor(k); });
+                    }
+                }
+
+                // initial render
+                updateLivePreviewFor(k);
+            });
+        });
+    })();
     </script>
 
 <?php

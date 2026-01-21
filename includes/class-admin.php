@@ -514,6 +514,8 @@ class TS_Appointment_Admin {
             'google_calendar_id',
             'google_client_id',
             'google_client_secret',
+            'google_send_updates',
+            'google_email_reminders',
             'turnstile_enabled',
             'turnstile_site_key',
             'turnstile_secret_key',
