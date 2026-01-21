@@ -1,0 +1,54 @@
+# TS Appointment - Git Ignore
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# PHP
+vendor/
+composer.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Logs
+debug.log
+*.log
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.sublime-project
+*.sublime-workspace
+
+# Backups
+*.backup
+*.bak
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+.cache/*

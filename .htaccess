@@ -1,0 +1,47 @@
+# TS Appointment Security Configuration
+
+# Empêcher l'accès direct aux fichiers PHP
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Autoriser le fichier principal
+<Files "ts-appointment.php">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# Empêcher l'accès au répertoire
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Désactiver l'exécution des scripts
+<FilesMatch "\.(js|css|txt)$">
+    <IfModule mod_headers.c>
+        Header set Content-Security-Policy "default-src 'self'"
+    </IfModule>
+</FilesMatch>
+
+# Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript
+</IfModule>
+
+# Cache
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+</IfModule>
+
+# Protection XMLRPC
+<Files "xmlrpc.php">
+    Order Allow,Deny
+    Deny from all
+</Files>

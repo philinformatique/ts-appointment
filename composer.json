@@ -1,0 +1,21 @@
+{
+    "name": "ts-appointment/ts-appointment",
+    "description": "Plugin de prise de rendez-vous Calendly-like avec synchronisation Google Agenda pour WordPress",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "TS Appointment",
+            "email": "support@ts-appointment.local"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "composer/installers": "^1.0"
+    },
+    "autoload": {
+        "classmap": [
+            "includes/"
+        ]
+    }
+}
