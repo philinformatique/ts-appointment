@@ -4,7 +4,6 @@
  * Plugin URI: https://ts-appointment.local
  * Description: Plugin de prise de rendez-vous type Calendly avec synchronisation Google Agenda
  * Version: 1.0.0
- * Update URI: https://github.com/philinformatique/ts-appointment
  * Author: TS Appointment
  * Author URI: https://ts-appointment.local
  * Text Domain: ts-appointment
@@ -40,7 +39,6 @@ class TS_Appointment {
     public function __construct() {
         $this->init_hooks();
         $this->load_dependencies();
-        $this->init_updater();
     }
 
     private function init_hooks() {
@@ -56,33 +54,13 @@ class TS_Appointment {
     }
 
     private function load_dependencies() {
-        $required = array(
-            'includes/class-database.php',
-            'includes/class-google-calendar.php',
-            'includes/class-appointment.php',
-            'includes/class-admin.php',
-            'includes/class-frontend.php',
-            'includes/class-rest-api.php',
-            'includes/class-email.php',
-        );
-
-        $missing = array();
-        foreach ($required as $rel) {
-            $path = TS_APPOINTMENT_DIR . $rel;
-            if (file_exists($path)) {
-                require_once $path;
-            } else {
-                $missing[] = $rel;
-            }
-        }
-
-        if (!empty($missing)) {
-            add_action('admin_notices', function() use ($missing) {
-                if (!current_user_can('activate_plugins')) return;
-                $list = implode(', ', array_map('esc_html', $missing));
-                echo '<div class="notice notice-error"><p>' . sprintf(__('Le plugin TS Appointment est incomplet. Fichiers manquants: %s. Veuillez réinstaller le plugin.', 'ts-appointment'), $list) . '</p></div>';
-            });
-        }
+        require_once TS_APPOINTMENT_DIR . 'includes/class-database.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-google-calendar.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-appointment.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-admin.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-frontend.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-rest-api.php';
+        require_once TS_APPOINTMENT_DIR . 'includes/class-email.php';
     }
 
     public function activate() {
@@ -253,34 +231,6 @@ class TS_Appointment {
             'ts-appointment-services',
             array('TS_Appointment_Admin', 'display_services')
         );
-    }
-
-    /**
-     * Initialize Plugin Update Checker integration if present.
-     * Expects the library to be placed in includes/plugin-update-checker/
-     */
-    private function init_updater() {
-        $updater_file = TS_APPOINTMENT_DIR . 'includes/plugin-update-checker/plugin-update-checker.php';
-        if (file_exists($updater_file)) {
-            require_once $updater_file;
-            if (class_exists('Puc_v4_Factory')) {
-                try {
-                    $updater = Puc_v4_Factory::buildUpdateChecker(
-                        'https://github.com/philinformatique/ts-appointment/',
-                        __FILE__,
-                        'ts-appointment'
-                    );
-                    $updater->setBranch('main');
-                } catch (Exception $e) {
-                    // silently fail; don't break plugin
-                }
-            }
-        } else {
-            add_action('admin_notices', function() {
-                if (!current_user_can('manage_options')) return;
-                echo '<div class="notice notice-info"><p>' . __('Pour activer les mises à jour GitHub automatiques, placez la librairie Plugin Update Checker dans includes/plugin-update-checker/.', 'ts-appointment') . '</p></div>';
-            });
-        }
     }
 }
 
