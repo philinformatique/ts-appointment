@@ -113,10 +113,16 @@
                     $requireAddr = !empty($loc['requireClientAddress']);
                     echo '<div class="location-extra" id="loc-extra-'. $lkey .'" style="display:none">';
                     if ($showBiz && !empty($business_address)) {
-                        echo '<div class="info-box">' . nl2br(esc_html($business_address)) . '</div>';
+                        echo '<div class="info-box">';
+                        echo '<div class="info-icon">i</div>';
+                        echo '<div class="info-content">' . wpautop(wp_kses_post($business_address)) . '</div>';
+                        echo '</div>';
                     }
                     if (!empty($loc['note'])) {
-                        echo '<div class="info-box">' . wp_kses_post($loc['note']) . '</div>';
+                        echo '<div class="info-box">';
+                        echo '<div class="info-icon">i</div>';
+                        echo '<div class="info-content">' . wpautop(wp_kses_post($loc['note'])) . '</div>';
+                        echo '</div>';
                     }
                     if ($requireAddr) {
                         echo '<div class="form-group">';
