@@ -56,13 +56,33 @@ class TS_Appointment {
     }
 
     private function load_dependencies() {
-        require_once TS_APPOINTMENT_DIR . 'includes/class-database.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-google-calendar.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-appointment.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-admin.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-frontend.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-rest-api.php';
-        require_once TS_APPOINTMENT_DIR . 'includes/class-email.php';
+        $required = array(
+            'includes/class-database.php',
+            'includes/class-google-calendar.php',
+            'includes/class-appointment.php',
+            'includes/class-admin.php',
+            'includes/class-frontend.php',
+            'includes/class-rest-api.php',
+            'includes/class-email.php',
+        );
+
+        $missing = array();
+        foreach ($required as $rel) {
+            $path = TS_APPOINTMENT_DIR . $rel;
+            if (file_exists($path)) {
+                require_once $path;
+            } else {
+                $missing[] = $rel;
+            }
+        }
+
+        if (!empty($missing)) {
+            add_action('admin_notices', function() use ($missing) {
+                if (!current_user_can('activate_plugins')) return;
+                $list = implode(', ', array_map('esc_html', $missing));
+                echo '<div class="notice notice-error"><p>' . sprintf(__('Le plugin TS Appointment est incomplet. Fichiers manquants: %s. Veuillez réinstaller le plugin.', 'ts-appointment'), $list) . '</p></div>';
+            });
+        }
     }
 
     public function activate() {
