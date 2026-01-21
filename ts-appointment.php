@@ -4,6 +4,7 @@
  * Plugin URI: https://ts-appointment.local
  * Description: Plugin de prise de rendez-vous type Calendly avec synchronisation Google Agenda
  * Version: 1.0.0
+ * Update URI: https://github.com/philinformatique/ts-appointment
  * Author: TS Appointment
  * Author URI: https://ts-appointment.local
  * Text Domain: ts-appointment
@@ -39,6 +40,7 @@ class TS_Appointment {
     public function __construct() {
         $this->init_hooks();
         $this->load_dependencies();
+        $this->init_updater();
     }
 
     private function init_hooks() {
@@ -231,6 +233,34 @@ class TS_Appointment {
             'ts-appointment-services',
             array('TS_Appointment_Admin', 'display_services')
         );
+    }
+
+    /**
+     * Initialize Plugin Update Checker integration if present.
+     * Expects the library to be placed in includes/plugin-update-checker/
+     */
+    private function init_updater() {
+        $updater_file = TS_APPOINTMENT_DIR . 'includes/plugin-update-checker/plugin-update-checker.php';
+        if (file_exists($updater_file)) {
+            require_once $updater_file;
+            if (class_exists('Puc_v4_Factory')) {
+                try {
+                    $updater = Puc_v4_Factory::buildUpdateChecker(
+                        'https://github.com/philinformatique/ts-appointment/',
+                        __FILE__,
+                        'ts-appointment'
+                    );
+                    $updater->setBranch('main');
+                } catch (Exception $e) {
+                    // silently fail; don't break plugin
+                }
+            }
+        } else {
+            add_action('admin_notices', function() {
+                if (!current_user_can('manage_options')) return;
+                echo '<div class="notice notice-info"><p>' . __('Pour activer les mises à jour GitHub automatiques, placez la librairie Plugin Update Checker dans includes/plugin-update-checker/.', 'ts-appointment') . '</p></div>';
+            });
+        }
     }
 }
 
