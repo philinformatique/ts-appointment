@@ -688,19 +688,3 @@
         transform: rotate(360deg);
     }
 }
-
-/* Location extra sections */
-.location-extra {
-    background: #fafafa;
-    padding: var(--spacing-lg);
-    border-radius: var(--border-radius);
-    border: 1px dashed var(--color-border);
-}
-
-.location-extra .form-group {
-    margin-bottom: var(--spacing-md);
-}
-
-.location-extra .form-group:last-child {
-    margin-bottom: 0;
-}
