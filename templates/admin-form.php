@@ -50,6 +50,29 @@
                 <th><label for="field_options"><?php _e('Options (pour liste déroulante)', 'ts-appointment'); ?></label></th>
                 <td><input type="text" id="field_options" name="field_options" class="regular-text" placeholder="Option 1, Option 2" value="<?php echo !empty($edit_field) && !empty($edit_field['options']) ? esc_attr(implode(', ', $edit_field['options'])) : ''; ?>"></td>
             </tr>
+            <tr>
+                <th><label for="field_visible_locations"><?php _e('Visibilité par lieu', 'ts-appointment'); ?></label></th>
+                <td>
+                    <?php
+                    $locs_json = get_option('ts_appointment_locations_config');
+                    $locs = json_decode($locs_json, true);
+                    $visible = !empty($edit_field) && !empty($edit_field['visible_locations']) && is_array($edit_field['visible_locations']) ? $edit_field['visible_locations'] : array();
+                    if (is_array($locs) && count($locs)) {
+                        echo '<select id="field_visible_locations" name="field_visible_locations[]" multiple style="min-width:250px;">';
+                        foreach ($locs as $l) {
+                            $k = isset($l['key']) ? $l['key'] : '';
+                            $lab = isset($l['label']) ? $l['label'] : $k;
+                            $sel = in_array($k, $visible, true) ? 'selected' : '';
+                            echo '<option value="' . esc_attr($k) . '" ' . $sel . '>' . esc_html($lab) . '</option>';
+                        }
+                        echo '</select>';
+                        echo '<p class="description">' . esc_html__('Laissez vide pour afficher ce champ pour tous les lieux.', 'ts-appointment') . '</p>';
+                    } else {
+                        echo '<p class="description">' . esc_html__('Aucun lieu configuré.', 'ts-appointment') . '</p>';
+                    }
+                    ?>
+                </td>
+            </tr>
         </table>
         <p><button type="submit" class="button button-primary"><?php echo !empty($edit_field) ? __('Enregistrer les modifications', 'ts-appointment') : __('Ajouter un champ', 'ts-appointment'); ?></button></p>
     </form>

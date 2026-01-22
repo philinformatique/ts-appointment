@@ -236,27 +236,19 @@ class TS_Appointment_Database {
                 array(
                     'key' => 'home',
                     'label' => __('Au domicile du client', 'ts-appointment'),
-                            'icon' => '📍',
-                    'showBusinessAddress' => false,
-                    'requireClientAddress' => true,
-                    'fields' => array(
-                        array('key' => 'client_address', 'label' => __('Adresse du client', 'ts-appointment'), 'type' => 'textarea', 'required' => true, 'placeholder' => __('Adresse complète', 'ts-appointment'))
-                    )
+                    'icon' => '📍',
+                    'fields' => array()
                 ),
                 array(
                     'key' => 'remote',
                     'label' => __('À distance', 'ts-appointment'),
-                            'icon' => '📍',
-                    'showBusinessAddress' => false,
-                    'requireClientAddress' => false,
+                    'icon' => '📍',
                     'fields' => array()
                 ),
                 array(
                     'key' => 'on_site',
                     'label' => __('Venir à notre adresse', 'ts-appointment'),
-                            'icon' => '📍',
-                    'showBusinessAddress' => true,
-                    'requireClientAddress' => false,
+                    'icon' => '📍',
                     'fields' => array()
                 )
             );
@@ -286,26 +278,18 @@ class TS_Appointment_Database {
                     'key' => 'home',
                     'label' => __('Au domicile du client', 'ts-appointment'),
                     'icon' => '📍',
-                    'showBusinessAddress' => false,
-                    'requireClientAddress' => true,
-                    'fields' => array(
-                        array('key' => 'client_address', 'label' => __('Adresse du client', 'ts-appointment'), 'type' => 'textarea', 'required' => true, 'placeholder' => __('Adresse complète', 'ts-appointment'))
-                    )
+                    'fields' => array()
                 ),
                 array(
                     'key' => 'remote',
                     'label' => __('À distance', 'ts-appointment'),
                     'icon' => '📍',
-                    'showBusinessAddress' => false,
-                    'requireClientAddress' => false,
                     'fields' => array()
                 ),
                 array(
                     'key' => 'on_site',
                     'label' => __('Venir à notre adresse', 'ts-appointment'),
                     'icon' => '📍',
-                    'showBusinessAddress' => true,
-                    'requireClientAddress' => false,
                     'fields' => array()
                 )
             );
@@ -513,14 +497,14 @@ class TS_Appointment_Database {
         $google_access_token = get_option('ts_appointment_google_access_token');
         $google_calendar_id = get_option('ts_appointment_google_calendar_id');
         
-        error_log('TS Appointment get_available_slots: google_enabled=' . $google_enabled . ', has_token=' . (!empty($google_access_token) ? 'yes' : 'no') . ', has_calendar_id=' . (!empty($google_calendar_id) ? 'yes' : 'no'));
+        ts_appointment_log('TS Appointment get_available_slots: google_enabled=' . $google_enabled . ', has_token=' . (!empty($google_access_token) ? 'yes' : 'no') . ', has_calendar_id=' . (!empty($google_calendar_id) ? 'yes' : 'no'), 'debug');
         
         if ($google_enabled && !empty($google_access_token) && !empty($google_calendar_id)) {
             $google = new TS_Appointment_Google_Calendar();
             $google_conflicts = $google->get_events_for_date($date);
-            error_log('TS Appointment get_available_slots: Google conflicts found = ' . count($google_conflicts));
+            ts_appointment_log('TS Appointment get_available_slots: Google conflicts found = ' . count($google_conflicts), 'debug');
             foreach ($google_conflicts as $i => $event) {
-                error_log('TS Appointment conflict ' . $i . ': ' . date('Y-m-d H:i:s', $event['start_ts']) . ' to ' . date('Y-m-d H:i:s', $event['end_ts']));
+                ts_appointment_log('TS Appointment conflict ' . $i . ': ' . date('Y-m-d H:i:s', $event['start_ts']) . ' to ' . date('Y-m-d H:i:s', $event['end_ts']), 'debug');
             }
         }
 
@@ -546,18 +530,18 @@ class TS_Appointment_Database {
                 $has_google_conflict = false;
                 if (!empty($google_conflicts)) {
                     foreach ($google_conflicts as $event) {
-                        if ($start_ts < $event['end_ts'] && $end_ts_candidate > $event['start_ts']) {
-                            $has_google_conflict = true;
-                            error_log('TS Appointment: Time ' . $time_str . ' conflicts with Google event');
-                            break;
-                        }
+                            if ($start_ts < $event['end_ts'] && $end_ts_candidate > $event['start_ts']) {
+                                $has_google_conflict = true;
+                                ts_appointment_log('TS Appointment: Time ' . $time_str . ' conflicts with Google event', 'debug');
+                                break;
+                            }
                     }
                 }
 
                 if (!$has_internal_conflict && !$has_google_conflict) {
                     $available[] = $time_str;
                 } else {
-                    error_log('TS Appointment: Time ' . $time_str . ' excluded - internal=' . ($has_internal_conflict ? 'yes' : 'no') . ', google=' . ($has_google_conflict ? 'yes' : 'no'));
+                    ts_appointment_log('TS Appointment: Time ' . $time_str . ' excluded - internal=' . ($has_internal_conflict ? 'yes' : 'no') . ', google=' . ($has_google_conflict ? 'yes' : 'no'), 'debug');
                 }
                 
                 $current_time += $slot_interval;

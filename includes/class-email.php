@@ -30,6 +30,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'appointment_id' => $appointment->id,
         ));
         
         $headers = array(
@@ -61,6 +62,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'appointment_id' => $appointment->id,
         ));
         
         $headers = array(
@@ -442,7 +444,20 @@ class TS_Appointment_Email {
         if (is_array($templates) && !empty($templates[$key]['body'])) {
             $body = $templates[$key]['body'];
             foreach ($context as $k => $v) {
+                // basic context replacements (escaped)
                 $body = str_replace('{' . $k . '}', esc_html($v), $body);
+            }
+
+            // Special placeholders: cancel URL/button (allow HTML for button)
+            if (!empty($context['appointment_id'])) {
+                $appt_id = intval($context['appointment_id']);
+                $nonce = wp_create_nonce('ts_appointment_cancel_' . $appt_id);
+                $cancel_url = admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . $appt_id . '&_wpnonce=' . $nonce);
+                $body = str_replace('{cancel_url}', esc_url($cancel_url), $body);
+                $btn_text = __('Annuler le rendez-vous', 'ts-appointment');
+                $button_html = '<a href="' . esc_url($cancel_url) . '" style="display:inline-block;background:#c0392b;color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none;">' . esc_html($btn_text) . '</a>';
+                // allow raw HTML for cancel button placeholder
+                $body = str_replace('{cancel_button}', $button_html, $body);
             }
             return $body;
         }

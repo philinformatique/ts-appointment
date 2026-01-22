@@ -48,19 +48,19 @@ class TS_Appointment_Google_Calendar {
     public function get_access_token($code) {
         // Vérifier les paramètres essentiels
         if (empty($this->client_id)) {
-            error_log('TS Appointment: get_access_token failed - client_id is empty');
+            ts_appointment_log('TS Appointment: get_access_token failed - client_id is empty', 'error');
             return false;
         }
         if (empty($this->client_secret)) {
-            error_log('TS Appointment: get_access_token failed - client_secret is empty');
+            ts_appointment_log('TS Appointment: get_access_token failed - client_secret is empty', 'error');
             return false;
         }
         if (empty($code)) {
-            error_log('TS Appointment: get_access_token failed - code is empty');
+            ts_appointment_log('TS Appointment: get_access_token failed - code is empty', 'error');
             return false;
         }
 
-        error_log('TS Appointment: Attempting Google token exchange with redirect_uri=' . $this->redirect_uri);
+        ts_appointment_log('TS Appointment: Attempting Google token exchange with redirect_uri=' . $this->redirect_uri, 'debug');
 
         $response = wp_remote_post('https://oauth2.googleapis.com/token', array(
             'body' => array(
@@ -73,18 +73,18 @@ class TS_Appointment_Google_Calendar {
         ));
 
         if (is_wp_error($response)) {
-            error_log('TS Appointment: wp_remote_post failed - ' . $response->get_error_message());
+            ts_appointment_log('TS Appointment: wp_remote_post failed - ' . $response->get_error_message(), 'error');
             return false;
         }
 
         $http_code = wp_remote_retrieve_response_code($response);
         $body_raw = wp_remote_retrieve_body($response);
-        error_log('TS Appointment: Google response code=' . $http_code . ', body=' . substr($body_raw, 0, 200));
+        ts_appointment_log('TS Appointment: Google response code=' . $http_code . ', body=' . substr($body_raw, 0, 200), 'debug');
 
         $body = json_decode($body_raw);
         
         if (isset($body->access_token)) {
-            error_log('TS Appointment: Token received successfully');
+            ts_appointment_log('TS Appointment: Token received successfully', 'debug');
             update_option('ts_appointment_google_access_token', $body->access_token);
             
             if (isset($body->refresh_token)) {
@@ -96,9 +96,9 @@ class TS_Appointment_Google_Calendar {
             return true;
         }
 
-        error_log('TS Appointment: Token exchange failed - access_token not in response');
+        ts_appointment_log('TS Appointment: Token exchange failed - access_token not in response', 'error');
         if (isset($body->error)) {
-            error_log('TS Appointment: Google error code: ' . $body->error . ' - ' . (isset($body->error_description) ? $body->error_description : ''));
+            ts_appointment_log('TS Appointment: Google error code: ' . $body->error . ' - ' . (isset($body->error_description) ? $body->error_description : ''), 'error');
         }
 
         return false;
@@ -109,7 +109,7 @@ class TS_Appointment_Google_Calendar {
      */
     private function refresh_access_token() {
         if (empty($this->refresh_token) || empty($this->client_id) || empty($this->client_secret)) {
-            error_log('TS Appointment: refresh_access_token skipped - missing refresh_token/client credentials');
+            ts_appointment_log('TS Appointment: refresh_access_token skipped - missing refresh_token/client credentials', 'error');
             return false;
         }
 
@@ -123,7 +123,7 @@ class TS_Appointment_Google_Calendar {
         ));
 
         if (is_wp_error($response)) {
-            error_log('TS Appointment: refresh_access_token http error - ' . $response->get_error_message());
+            ts_appointment_log('TS Appointment: refresh_access_token http error - ' . $response->get_error_message(), 'error');
             return false;
         }
 
@@ -132,11 +132,10 @@ class TS_Appointment_Google_Calendar {
         if (!empty($body->access_token)) {
             $this->access_token = $body->access_token;
             update_option('ts_appointment_google_access_token', $body->access_token);
-            error_log('TS Appointment: access token refreshed successfully');
+            ts_appointment_log('TS Appointment: access token refreshed successfully', 'debug');
             return true;
         }
-
-        error_log('TS Appointment: refresh_access_token failed - response: ' . substr($body_raw, 0, 300));
+        ts_appointment_log('TS Appointment: refresh_access_token failed - response: ' . substr($body_raw, 0, 300), 'error');
         return false;
     }
 
@@ -222,9 +221,9 @@ class TS_Appointment_Google_Calendar {
             $event['location'] = $appointment->client_address;
         }
 
-        error_log('TS Appointment: Creating Google event with summary: ' . $event['summary']);
-        error_log('TS Appointment: Event start: ' . $event['start']['dateTime'] . ', timeZone: ' . $event['start']['timeZone']);
-        error_log('TS Appointment: Calendar ID: ' . $this->calendar_id);
+        ts_appointment_log('TS Appointment: Creating Google event with summary: ' . $event['summary'], 'debug');
+        ts_appointment_log('TS Appointment: Event start: ' . $event['start']['dateTime'] . ', timeZone: ' . $event['start']['timeZone'], 'debug');
+        ts_appointment_log('TS Appointment: Calendar ID: ' . $this->calendar_id, 'debug');
 
         // Respect sendUpdates option: none|externalOnly|all
         $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
@@ -245,32 +244,32 @@ class TS_Appointment_Google_Calendar {
         );
 
         if (is_wp_error($response)) {
-            error_log('TS Appointment: wp_remote_post error - ' . $response->get_error_message());
+            ts_appointment_log('TS Appointment: wp_remote_post error - ' . $response->get_error_message(), 'error');
             return false;
         }
 
         $http_code = wp_remote_retrieve_response_code($response);
         $body_raw = wp_remote_retrieve_body($response);
-        error_log('TS Appointment: Google create_event response code=' . $http_code);
+        ts_appointment_log('TS Appointment: Google create_event response code=' . $http_code, 'debug');
         
         $body = json_decode($body_raw);
         
         if ($http_code === 401) {
-            error_log('TS Appointment: create_event received 401, attempting token refresh');
+            ts_appointment_log('TS Appointment: create_event received 401, attempting token refresh', 'warning');
             if ($this->refresh_access_token()) {
                 return $this->create_event($appointment, $is_confirmed);
             }
         }
 
         if (isset($body->id)) {
-            error_log('TS Appointment: Google event created successfully with id: ' . $body->id);
+            ts_appointment_log('TS Appointment: Google event created successfully with id: ' . $body->id, 'debug');
             return $body->id;
         }
         
         if (isset($body->error)) {
-            error_log('TS Appointment: Google API error - code: ' . $body->error->code . ', message: ' . $body->error->message);
+            ts_appointment_log('TS Appointment: Google API error - code: ' . $body->error->code . ', message: ' . $body->error->message, 'error');
         } else {
-            error_log('TS Appointment: Google create_event failed - no id in response. Response: ' . substr($body_raw, 0, 500));
+            ts_appointment_log('TS Appointment: Google create_event failed - no id in response. Response: ' . substr($body_raw, 0, 500), 'error');
         }
 
         return false;
@@ -346,7 +345,7 @@ class TS_Appointment_Google_Calendar {
         }
 
         if (wp_remote_retrieve_response_code($response) === 401) {
-            error_log('TS Appointment: update_event received 401, attempting token refresh');
+            ts_appointment_log('TS Appointment: update_event received 401, attempting token refresh', 'warning');
             if ($this->refresh_access_token()) {
                 return $this->update_event($appointment);
             }
@@ -385,7 +384,7 @@ class TS_Appointment_Google_Calendar {
         }
 
         if (wp_remote_retrieve_response_code($response) === 401) {
-            error_log('TS Appointment: delete_event received 401, attempting token refresh');
+            ts_appointment_log('TS Appointment: delete_event received 401, attempting token refresh', 'warning');
             if ($this->refresh_access_token()) {
                 return $this->delete_event($appointment);
             }
@@ -448,7 +447,7 @@ class TS_Appointment_Google_Calendar {
             'timeZone' => $tz_string,
         );
 
-        error_log('TS Appointment Google: fetch events timeMin=' . $time_min . ' timeMax=' . $time_max . ' tz=' . $tz_string);
+        ts_appointment_log('TS Appointment Google: fetch events timeMin=' . $time_min . ' timeMax=' . $time_max . ' tz=' . $tz_string, 'debug');
 
         $response = wp_remote_get('https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events?' . http_build_query($query), array(
             'headers' => array(
@@ -457,16 +456,16 @@ class TS_Appointment_Google_Calendar {
         ));
 
         if (is_wp_error($response)) {
-            error_log('TS Appointment Google: wp_remote_get error ' . $response->get_error_message());
+            ts_appointment_log('TS Appointment Google: wp_remote_get error ' . $response->get_error_message(), 'error');
             return array();
         }
 
         $code = wp_remote_retrieve_response_code($response);
         $body_raw = wp_remote_retrieve_body($response);
-        error_log('TS Appointment Google: response code=' . $code . ' len=' . strlen($body_raw));
+        ts_appointment_log('TS Appointment Google: response code=' . $code . ' len=' . strlen($body_raw), 'debug');
 
         if ($code === 401) {
-            error_log('TS Appointment Google: get_events_for_date received 401, attempting token refresh');
+            ts_appointment_log('TS Appointment Google: get_events_for_date received 401, attempting token refresh', 'warning');
             if ($this->refresh_access_token()) {
                 return $this->get_events_for_date($date);
             }
@@ -492,7 +491,7 @@ class TS_Appointment_Google_Calendar {
             }
         }
 
-        error_log('TS Appointment Google: parsed events=' . count($events));
+        ts_appointment_log('TS Appointment Google: parsed events=' . count($events), 'debug');
         return $events;
     }
 }

@@ -37,20 +37,20 @@ class TS_Appointment_Admin {
             } elseif ($action === 'google_callback') {
                 if (isset($_GET['code'])) {
                     $code = sanitize_text_field($_GET['code']);
-                    error_log('TS Appointment: Google callback received with code=' . substr($code, 0, 20) . '...');
+                    ts_appointment_log('TS Appointment: Google callback received with code=' . substr($code, 0, 20) . '...', 'debug');
                     $google = new TS_Appointment_Google_Calendar();
                     $ok = $google->get_access_token($code);
                     if ($ok) {
-                        error_log('TS Appointment: Google authentication successful');
+                        ts_appointment_log('TS Appointment: Google authentication successful', 'debug');
                         echo '<div class="notice notice-success"><p>' . __('Compte Google lié avec succès.', 'ts-appointment') . '</p></div>';
                     } else {
-                        error_log('TS Appointment: Google authentication failed');
+                        ts_appointment_log('TS Appointment: Google authentication failed', 'error');
                         echo '<div class="notice notice-error"><p>' . __('Échec de la liaison du compte Google. Vérifiez vos paramètres Client ID/Secret et réessayez.', 'ts-appointment') . '</p></div>';
                     }
                 } else {
-                    error_log('TS Appointment: Google callback received but no code in GET params');
+                    ts_appointment_log('TS Appointment: Google callback received but no code in GET params', 'warning');
                     if (isset($_GET['error'])) {
-                        error_log('TS Appointment: Google error: ' . sanitize_text_field($_GET['error']));
+                        ts_appointment_log('TS Appointment: Google error: ' . sanitize_text_field($_GET['error']), 'error');
                     }
                     echo '<div class="notice notice-error"><p>' . __('Code d’autorisation manquant.', 'ts-appointment') . '</p></div>';
                 }
@@ -95,8 +95,7 @@ class TS_Appointment_Admin {
                     if (empty($key) && !empty($label)) {
                         $key = sanitize_key($label);
                     }
-                    $show_business = isset($_POST['loc_show_business']) ? 1 : 0;
-                    $require_client = isset($_POST['loc_require_client']) ? 1 : 0;
+                    // options removed: loc_show_business, loc_require_client
                     $icon = isset($_POST['loc_icon']) ? sanitize_text_field($_POST['loc_icon']) : '📍';
                     $note = isset($_POST['loc_note']) ? wp_kses_post(wp_unslash($_POST['loc_note'])) : '';
 
@@ -111,8 +110,6 @@ class TS_Appointment_Admin {
                             'key' => $key,
                             'label' => $label,
                             'icon' => $icon,
-                            'showBusinessAddress' => (bool) $show_business,
-                            'requireClientAddress' => (bool) $require_client,
                             'note' => $note,
                             'fields' => array(),
                         );
@@ -124,8 +121,7 @@ class TS_Appointment_Admin {
                 if ($action === 'edit' && !empty($_POST['loc_key'])) {
                     $edit_key = sanitize_key($_POST['loc_key']);
                     $label = sanitize_text_field($_POST['loc_label'] ?? '');
-                    $show_business = isset($_POST['loc_show_business']) ? 1 : 0;
-                    $require_client = isset($_POST['loc_require_client']) ? 1 : 0;
+                    // options removed: loc_show_business, loc_require_client
                     $icon = isset($_POST['loc_icon']) ? sanitize_text_field($_POST['loc_icon']) : '📍';
                     $note = isset($_POST['loc_note']) ? wp_kses_post(wp_unslash($_POST['loc_note'])) : '';
 
@@ -133,8 +129,6 @@ class TS_Appointment_Admin {
                         if (isset($loc['key']) && $loc['key'] === $edit_key) {
                             $locations[$i]['label'] = $label;
                             $locations[$i]['icon'] = $icon;
-                            $locations[$i]['showBusinessAddress'] = (bool) $show_business;
-                            $locations[$i]['requireClientAddress'] = (bool) $require_client;
                             $locations[$i]['note'] = $note;
                             self::save_locations_config($locations);
                             echo '<div class="notice notice-success"><p>' . __('Lieu modifié.', 'ts-appointment') . '</p></div>';
@@ -160,6 +154,40 @@ class TS_Appointment_Admin {
         // Rafraîchir après modifications
         $locations = self::get_locations_config();
         include TS_APPOINTMENT_DIR . 'templates/admin-locations.php';
+    }
+
+    public static function display_logs() {
+        if (!current_user_can('manage_options')) return;
+
+        $log_file = TS_APPOINTMENT_DIR . 'debug.log';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce']) && isset($_POST['clear_debug_log'])) {
+            if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_settings')) {
+                if (file_exists($log_file)) {
+                    @unlink($log_file);
+                }
+                echo '<div class="notice notice-success"><p>' . __('Logs supprimés.', 'ts-appointment') . '</p></div>';
+            }
+        }
+
+        $contents = '';
+        if (file_exists($log_file)) {
+            $raw = file_get_contents($log_file);
+            // Limit size to avoid huge output
+            if (strlen($raw) > 200000) {
+                $raw = substr($raw, -200000);
+                $raw = "... (truncated) ...\n" . $raw;
+            }
+            $contents = esc_html($raw);
+        } else {
+            $contents = esc_html(__('Aucun log disponible.', 'ts-appointment'));
+        }
+
+        echo '<div class="wrap"><h1>' . esc_html__('Logs TS Appointment', 'ts-appointment') . '</h1>';
+        echo '<form method="post">';
+        wp_nonce_field('ts_appointment_settings', 'ts_appointment_nonce');
+        echo '<p><button class="button" type="submit" name="clear_debug_log" value="1">' . esc_html__('Supprimer les logs', 'ts-appointment') . '</button></p>';
+        echo '<pre style="background:#fff;border:1px solid #ddd;padding:12px;white-space:pre-wrap;word-break:break-word;max-height:600px;overflow:auto">' . $contents . '</pre>';
+        echo '</form></div>';
     }
 
     public static function display_form_builder() {
@@ -214,7 +242,13 @@ class TS_Appointment_Admin {
                             'type' => $type,
                             'required' => (bool) $required,
                             'options' => $type === 'select' ? $options_arr : array(),
+                            'visible_locations' => array(),
                         );
+                        // Capture visibility per location if provided (multiselect)
+                        if (isset($_POST['field_visible_locations']) && is_array($_POST['field_visible_locations'])) {
+                            $vis = array_map('sanitize_text_field', $_POST['field_visible_locations']);
+                            $new_field['visible_locations'] = array_values($vis);
+                        }
                         if ($is_edit) {
                             // Replace existing field
                             foreach ($form_fields as $i => $f) {
@@ -519,6 +553,7 @@ class TS_Appointment_Admin {
             'turnstile_enabled',
             'turnstile_site_key',
             'turnstile_secret_key',
+            'debug_enabled',
             // JSON configs
             'locations_config',
             'form_schema',
@@ -536,10 +571,24 @@ class TS_Appointment_Admin {
         }
 
         // Gestion explicite des cases à cocher pour éviter de conserver un état activé quand décochées
-        $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled');
+        $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled');
         foreach ($checkboxes as $checkbox) {
             if (!isset($_POST[$checkbox])) {
                 update_option('ts_appointment_' . $checkbox, 0);
+            }
+        }
+
+        // If debug has been disabled, remove the debug log file
+        try {
+            $prev = get_option('ts_appointment_debug_enabled', 0);
+        } catch (Exception $e) {
+            $prev = 0;
+        }
+        $new = isset($_POST['debug_enabled']) ? 1 : 0;
+        if ($prev && !$new) {
+            $log_file = TS_APPOINTMENT_DIR . 'debug.log';
+            if (file_exists($log_file)) {
+                @unlink($log_file);
             }
         }
     }

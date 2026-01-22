@@ -29,13 +29,7 @@
                 <th><label for="loc_icon"><?php _e('Icône (emoji ou texte)', 'ts-appointment'); ?></label></th>
                 <td><input type="text" id="loc_icon" name="loc_icon" class="regular-text" placeholder="📍" value="<?php echo !empty($edit_loc) ? esc_attr($edit_loc['icon'] ?? '📍') : '📍'; ?>"></td>
             </tr>
-            <tr>
-                <th scope="row"><?php _e('Options', 'ts-appointment'); ?></th>
-                <td>
-                    <label><input type="checkbox" name="loc_show_business" value="1"> <?php _e('Afficher l’adresse de l’entreprise pour ce lieu', 'ts-appointment'); ?></label><br>
-                    <label><input type="checkbox" name="loc_require_client" value="1"> <?php _e('Demander l’adresse du client', 'ts-appointment'); ?></label>
-                </td>
-            </tr>
+            
             <tr>
                 <th><label for="loc_note"><?php _e('Note (affichée aux clients)', 'ts-appointment'); ?></label></th>
                 <td>
@@ -65,8 +59,6 @@
                 <th><?php _e('Nom', 'ts-appointment'); ?></th>
                 <th><?php _e('Slug', 'ts-appointment'); ?></th>
                 <th><?php _e('Icône', 'ts-appointment'); ?></th>
-                <th><?php _e('Adresse entreprise', 'ts-appointment'); ?></th>
-                <th><?php _e('Adresse client requise', 'ts-appointment'); ?></th>
                 <th><?php _e('Note', 'ts-appointment'); ?></th>
                 <th><?php _e('Actions', 'ts-appointment'); ?></th>
             </tr>
@@ -78,8 +70,6 @@
                         <td><?php echo esc_html($loc['label']); ?></td>
                         <td><?php echo esc_html($loc['key']); ?></td>
                         <td><?php echo !empty($loc['icon']) ? esc_html($loc['icon']) : '📍'; ?></td>
-                        <td><?php echo !empty($loc['showBusinessAddress']) ? __('Oui', 'ts-appointment') : __('Non', 'ts-appointment'); ?></td>
-                        <td><?php echo !empty($loc['requireClientAddress']) ? __('Oui', 'ts-appointment') : __('Non', 'ts-appointment'); ?></td>
                         <td><?php echo !empty($loc['note']) ? wp_kses_post($loc['note']) : ''; ?></td>
                         <td>
                             <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=ts-appointment-locations&edit_loc_key=' . urlencode($loc['key']))); ?>"><?php _e('Modifier', 'ts-appointment'); ?></a>
@@ -93,7 +83,7 @@
                     </tr>
                 <?php endforeach; ?>
             <?php else : ?>
-                <tr><td colspan="7"><?php _e('Aucun lieu pour le moment.', 'ts-appointment'); ?></td></tr>
+                <tr><td colspan="5"><?php _e('Aucun lieu pour le moment.', 'ts-appointment'); ?></td></tr>
             <?php endif; ?>
         </tbody>
     </table>

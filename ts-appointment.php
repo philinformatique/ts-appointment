@@ -38,6 +38,10 @@ class TS_Appointment {
 
     public function __construct() {
         $this->init_hooks();
+        // Ensure helpers (logger, small utilities) are available early
+        if (file_exists(TS_APPOINTMENT_DIR . 'includes/helpers.php')) {
+            require_once TS_APPOINTMENT_DIR . 'includes/helpers.php';
+        }
         $this->load_dependencies();
     }
 
@@ -51,6 +55,24 @@ class TS_Appointment {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        // Public cancel endpoint (admin-post) for client cancellation links
+        add_action('admin_post_ts_appointment_cancel_public', array($this, 'handle_public_cancel'));
+        add_action('admin_post_nopriv_ts_appointment_cancel_public', array($this, 'handle_public_cancel'));
+    }
+
+    public static function handle_public_cancel() {
+        $id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;
+        $nonce = isset($_REQUEST['_wpnonce']) ? sanitize_text_field($_REQUEST['_wpnonce']) : '';
+        if (!$id || !wp_verify_nonce($nonce, 'ts_appointment_cancel_' . $id)) {
+            wp_die(__('Lien d\'annulation invalide ou expiré.', 'ts-appointment'));
+        }
+        $ok = TS_Appointment_Manager::cancel_appointment($id, __('Annulation par le client via email', 'ts-appointment'));
+        if ($ok) {
+            // Redirect to home with query param to show message
+            wp_safe_redirect(site_url('/?ts_appointment_cancelled=1'));
+            exit;
+        }
+        wp_die(__('Impossible d\'annuler le rendez-vous.', 'ts-appointment'));
     }
 
     private function load_dependencies() {
@@ -108,14 +130,40 @@ class TS_Appointment {
 
         wp_enqueue_script('ts-appointment-frontend', TS_APPOINTMENT_URL . 'assets/js/frontend.js', $deps, TS_APPOINTMENT_VERSION, true);
 
-        // Load runtime i18n mapping from languages/en_US.php when available
-        $runtime_i18n = array();
+        // Default i18n (French) used if no other mapping is provided
+        $default_i18n = array(
+            'Chargement...' => 'Chargement...',
+            'Erreur lors du chargement des créneaux' => 'Erreur lors du chargement des créneaux',
+            'Aucun créneau disponible pour cette date' => 'Aucun créneau disponible pour cette date',
+            'Veuillez remplir tous les champs obligatoires' => 'Veuillez remplir tous les champs obligatoires',
+            '✓ Rendez-vous réservé avec succès! Vous recevrez une confirmation par email.' => '✓ Rendez-vous réservé avec succès! Vous recevrez une confirmation par email.',
+            'Erreur lors de la réservation' => 'Erreur lors de la réservation',
+            'La vérification Turnstile est indisponible sur ce navigateur.' => 'La vérification Turnstile est indisponible sur ce navigateur.',
+            'Merci de valider le contrôle anti-robot.' => 'Merci de valider le contrôle anti-robot.',
+            'Erreur lors du chargement' => 'Erreur lors du chargement',
+        );
+
+        // Load en_US map when site locale is en_US or en_CA; otherwise use default French
+        $runtime_i18n = $default_i18n;
         if (in_array(get_locale(), array('en_US','en_CA'))) {
             $php_i18n_file = TS_APPOINTMENT_DIR . 'languages/en_US.php';
             if (file_exists($php_i18n_file)) {
                 $maybe = include $php_i18n_file;
                 if (is_array($maybe)) {
                     $runtime_i18n = $maybe;
+                }
+            }
+        }
+
+        // Prepare locationRequiresAddress mapping for frontend
+        $frontend_locations_json = get_option('ts_appointment_locations_config');
+        $frontend_locations = json_decode($frontend_locations_json, true);
+        $location_requires = array();
+        if (is_array($frontend_locations)) {
+            foreach ($frontend_locations as $loc) {
+                if (isset($loc['key'])) {
+                    // client address requirement removed — set to 0 for all
+                    $location_requires[$loc['key']] = 0;
                 }
             }
         }
@@ -132,7 +180,10 @@ class TS_Appointment {
             'currencyPosition' => get_option('ts_appointment_currency_position', 'right'),
             'turnstileEnabled' => ($turnstile_enabled && $turnstile_site_key && $turnstile_secret_key) ? 1 : 0,
             'turnstileSiteKey' => $turnstile_site_key,
-            'i18n' => $runtime_i18n
+            'i18n' => $runtime_i18n,
+            'locationRequiresAddress' => $location_requires,
+            'googleMapsApiKey' => get_option('ts_appointment_google_maps_api_key', ''),
+            'debug' => (bool) get_option('ts_appointment_debug_enabled', false),
         ));
     }
 
@@ -156,8 +207,32 @@ class TS_Appointment {
             }
         }
         
-        // Load runtime i18n mapping for admin JS
-        $admin_i18n = array();
+        // Default admin i18n (French)
+        $default_admin_i18n = array(
+            'Êtes-vous sûr?' => 'Êtes-vous sûr?',
+            'Rendez-vous confirmé' => 'Rendez-vous confirmé',
+            'Erreur lors de la confirmation' => 'Erreur lors de la confirmation',
+            'Erreur serveur' => 'Erreur serveur',
+            'Rendez-vous supprimé' => 'Rendez-vous supprimé',
+            'Erreur lors de la suppression' => 'Erreur lors de la suppression',
+            'Erreur lors du chargement' => 'Erreur lors du chargement',
+            'Détails du rendez-vous' => 'Détails du rendez-vous',
+            'Nom:' => 'Nom:',
+            'Email:' => 'Email:',
+            'Téléphone:' => 'Téléphone:',
+            'Date:' => 'Date:',
+            'Type:' => 'Type:',
+            'Adresse:' => 'Adresse:',
+            'Notes:' => 'Notes:',
+            'Statut:' => 'Statut:',
+            'Fermer' => 'Fermer',
+            'En attente' => 'En attente',
+            'Confirmé' => 'Confirmé',
+            'Complété' => 'Complété',
+            'Annulé' => 'Annulé'
+        );
+
+        $admin_i18n = $default_admin_i18n;
         if (in_array(get_locale(), array('en_US','en_CA'))) {
             $php_i18n_file = TS_APPOINTMENT_DIR . 'languages/en_US.php';
             if (file_exists($php_i18n_file)) {
@@ -257,6 +332,22 @@ class TS_Appointment {
             'ts-appointment-services',
             array('TS_Appointment_Admin', 'display_services')
         );
+
+        // Add Logs submenu when debug option is enabled
+        $debug_enabled = false;
+        if (function_exists('get_option')) {
+            $debug_enabled = (bool) get_option('ts_appointment_debug_enabled', false);
+        }
+        if ($debug_enabled) {
+            add_submenu_page(
+                'ts-appointment',
+                __('Logs', 'ts-appointment'),
+                __('Logs', 'ts-appointment'),
+                'manage_options',
+                'ts-appointment-logs',
+                array('TS_Appointment_Admin', 'display_logs')
+            );
+        }
     }
 }
 

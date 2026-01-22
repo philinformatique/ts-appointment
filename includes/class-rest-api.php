@@ -77,25 +77,25 @@ class TS_Appointment_REST_API {
         $service_id = intval($request->get_param('service_id'));
         $date = sanitize_text_field($request->get_param('date'));
         
-        error_log('TS Appointment: get_available_slots called with service_id=' . $service_id . ', date=' . $date);
+        ts_appointment_log('TS Appointment: get_available_slots called with service_id=' . $service_id . ', date=' . $date, 'debug');
         
         if (!$service_id || !$date) {
-            error_log('TS Appointment: Missing params - service_id=' . $service_id . ', date=' . $date);
+            ts_appointment_log('TS Appointment: Missing params - service_id=' . $service_id . ', date=' . $date, 'warning');
             return new WP_REST_Response(array('message' => __('Paramètres manquants.', 'ts-appointment')), 400);
         }
 
         $service = TS_Appointment_Database::get_service($service_id);
         if (!$service) {
-            error_log('TS Appointment: Service not found - service_id=' . $service_id);
+            ts_appointment_log('TS Appointment: Service not found - service_id=' . $service_id, 'warning');
             return new WP_REST_Response(array('message' => __('Service introuvable.', 'ts-appointment')), 404);
         }
 
         try {
             $slots = TS_Appointment_Database::get_available_slots($service_id, $date);
-            error_log('TS Appointment: Slots found - count=' . count($slots));
+            ts_appointment_log('TS Appointment: Slots found - count=' . count($slots), 'debug');
             return new WP_REST_Response($slots);
         } catch (Exception $e) {
-            error_log('TS Appointment: Exception - ' . $e->getMessage());
+            ts_appointment_log('TS Appointment: Exception - ' . $e->getMessage(), 'error');
             return new WP_REST_Response(array('message' => __('Erreur interne: ', 'ts-appointment') . $e->getMessage()), 500);
         }
     }
@@ -106,7 +106,7 @@ class TS_Appointment_REST_API {
             $result = TS_Appointment_Manager::confirm_appointment($id);
             return new WP_REST_Response(array('success' => $result));
         } catch (Exception $e) {
-            error_log('TS Appointment: confirm_appointment failed - ' . $e->getMessage());
+            ts_appointment_log('TS Appointment: confirm_appointment failed - ' . $e->getMessage(), 'error');
             return new WP_REST_Response(array('success' => false, 'message' => __('Erreur serveur lors de la confirmation.', 'ts-appointment')), 500);
         }
     }

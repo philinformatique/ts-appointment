@@ -24,6 +24,7 @@
         const $turnstile = $('#ts-turnstile');
         let turnstileToken = '';
         let turnstileWidgetId = null;
+        let turnstileRendered = false;
 
         // Initialize progressive reveal UI and mobile interactions
         function initProgressiveReveal() {
@@ -42,6 +43,7 @@
 
             $('.form-actions').hide();
             $priceBox.hide();
+            $('#ts-client-info').hide();
 
             // Reveal locations after selecting a service
             $serviceId.on('change.reveal', function(){
@@ -60,7 +62,36 @@
                 }
                 $appointmentDate.closest('.form-row').show();
                 $appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                toggleClientInfoVisibility(key);
             });
+
+        // Toggle client-info visibility helper (trims values, restores original required flag)
+        function toggleClientInfoVisibility(key) {
+            try {
+                $('#ts-client-info').find('.form-group').each(function() {
+                    const $fg = $(this);
+                    const vis = $fg.attr('data-visible-locations');
+                    if (!vis || vis.trim().length === 0) {
+                        $fg.show();
+                        // restore original required if present
+                        if ($fg.attr('data-original-required')) {
+                            $fg.find('[name]').prop('required', true);
+                        }
+                        return;
+                    }
+                    const allowed = vis.split(',').map(function(s){ return s.trim(); });
+                    if (allowed.indexOf(key) !== -1) {
+                        $fg.show();
+                        if ($fg.attr('data-original-required')) {
+                            $fg.find('[name]').prop('required', true);
+                        }
+                    } else {
+                        $fg.hide();
+                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false); } catch (e) {} });
+                    }
+                });
+            } catch (e) {}
+        }
 
             // Reveal times after date is picked (fetch will populate)
             $appointmentDate.on('change.reveal', function(){
@@ -70,11 +101,27 @@
 
             // Enhance selection to reveal submit and price
             const _origSelectTimeSlot = window.selectTimeSlot || null;
-            // If selectTimeSlot exists as function, wrap it; otherwise update later via event
+            // When a slot is selected reveal client info then actions
             $(document).on('tsSlotSelected.reveal', function(e, $btn){
-                $('.form-actions').show();
+                // Reveal client info container
+                $('#ts-client-info').show();
+                // Ensure child groups (previously hidden) are visible as well
+                $('#ts-client-info').find('.form-group, .form-row').show();
+                // Focus first visible input for convenience
+                try { $('#ts-client-info').find('input, textarea, select').filter(':visible').first().focus(); } catch (e) {}
+                // Reveal price and submit actions
                 $priceBox.show();
-                $('.form-actions')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                $('.form-actions').show();
+                // Ensure Cloudflare Turnstile is visible and initialized when submit becomes visible
+                try {
+                    if (turnstileEnabled && $turnstile.length) {
+                        $turnstile.closest('.form-group').show();
+                        try { initTurnstile(); } catch (e) {}
+                    }
+                } catch (e) {}
+                // Scroll to client info for convenience
+                const el = document.getElementById('ts-client-info');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
 
             // Swipe handling on time slots for day navigation
@@ -129,6 +176,15 @@
                 $target.find('[required]').prop('required', true);
             }
             updatePriceDisplay();
+            // Ensure date field is visible (robust fallback in case reveal namespaced handler didn't run)
+            try {
+                $appointmentDate.closest('.form-group').show();
+                $appointmentDate.closest('.form-row').show();
+                $appointmentDate.prop('disabled', false);
+                $appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (e) {}
+            // Toggle client-info visibility for this location as well
+            toggleClientInfoVisibility(key);
         });
 
         // Charger les créneaux disponibles
@@ -157,11 +213,45 @@
             initTurnstile();
         }
 
+        // Set custom HTML5 required messages in French (overrides browser default English message)
+        setCustomRequiredMessages();
+
         // Soumettre le formulaire
         $form.on('submit', function(e) {
             e.preventDefault();
             submitForm();
         });
+
+        // Ensure custom required messages are bound (useful if dynamic fields are added)
+        function setCustomRequiredMessages() {
+            var defaultMsg = 'Veuillez remplir ce champ.';
+            try {
+                if (typeof tsAppointment !== 'undefined' && tsAppointment.i18n) {
+                    // Prefer a more specific translation if available
+                    defaultMsg = tsAppointment.i18n['Veuillez remplir tous les champs obligatoires'] || tsAppointment.i18n['Veuillez remplir ce champ.'] || defaultMsg;
+                }
+            } catch (e) {}
+
+            $form.find('[required]').each(function() {
+                // Remove previous handlers
+                this.removeEventListener && this.removeEventListener('invalid', null);
+                this.addEventListener('invalid', function(ev) {
+                    // Only set message when empty/invalid
+                    if (!this.validity.valid) {
+                        try { this.setCustomValidity(defaultMsg); } catch (e) {}
+                    }
+                });
+                // Clear custom message on input/change
+                this.addEventListener('input', function() {
+                    try { this.setCustomValidity(''); } catch (e) {}
+                });
+                this.addEventListener('change', function() {
+                    try { this.setCustomValidity(''); } catch (e) {}
+                });
+            });
+        }
+
+        // Client address and Google Places integration removed — no hidden lat/lng fields required
 
         // Sélectionner un créneau horaire
         function selectTimeSlot($btn) {
@@ -169,7 +259,7 @@
             $btn.addClass('active');
             $appointmentTime.val($btn.data('time'));
             // Notify progressive reveal logic that a slot was selected
-            try { $(document).trigger('tsSlotSelected', [$btn]); } catch (e) {}
+            try { $(document).trigger('tsSlotSelected.reveal', [$btn]); } catch (e) {}
         }
 
         // Charger les créneaux disponibles via API
@@ -186,6 +276,22 @@
                     populateTimeSlots(response);
                 },
                 error: function(xhr) {
+                    // Detailed debug output when enabled
+                    try {
+                        if (typeof tsAppointment !== 'undefined' && tsAppointment.debug) {
+                            console.error('available-slots error', xhr);
+                            var txt = xhr.responseText || JSON.stringify(xhr);
+                            $appointmentTimeSlots.html('<div style="padding:12px;color:#900;background:#fff6f6;border:1px solid #f2dede;">' + $('<div>').text(txt).html() + '</div>');
+                            var parsed = null;
+                            try { parsed = JSON.parse(xhr.responseText); } catch (e) { parsed = null; }
+                            if (parsed && parsed.message) {
+                                showMessage(parsed.message, 'error');
+                            } else {
+                                showMessage(__('Erreur lors du chargement des créneaux'), 'error');
+                            }
+                            return;
+                        }
+                    } catch (e) {}
                     const errMsg = xhr.responseJSON?.message || __('Erreur lors du chargement des créneaux');
                     showMessage(errMsg, 'error');
                     $appointmentTimeSlots.empty();
@@ -219,6 +325,13 @@
             }
 
             const locationKey = $('input[name="appointment_type"]:checked').val();
+            // Do not display price until a location has been selected
+            if (!locationKey) {
+                $priceBox.hide();
+                // still filter locations using prices but do not show amount
+                filterLocationsByService(prices);
+                return;
+            }
             let priceVal = null;
             if (locationKey && prices.hasOwnProperty(locationKey)) {
                 priceVal = prices[locationKey];
@@ -319,18 +432,7 @@
                 appointment_type: $('input[name="appointment_type"]:checked').val(),
                 appointment_date: $appointmentDate.val(),
                 appointment_time: $appointmentTime.val(),
-                // Get client address from the active location extra container (each textarea id is client_address_<key>)
-                client_address: (function(){
-                    var apType = $('input[name="appointment_type"]:checked').val();
-                    if (apType) {
-                        var $txt = $('#loc-extra-' + apType).find('textarea[name="client_address"]');
-                        if ($txt.length) return $txt.val();
-                    }
-                    // Fallback: any visible client_address textarea
-                    var $visible = $('textarea[name="client_address"]:visible');
-                    if ($visible.length) return $visible.first().val();
-                    return $('#client_address').val() || '';
-                })(),
+                // client_address removed from form — not submitted
                 notes: $('#notes').val(),
                 extra: Object.assign({}, collectExtraFields(), collectBaseExtras())
             };
@@ -339,6 +441,8 @@
                 showMessage(__('Merci de valider le contrôle anti-robot.'), 'error');
                 return;
             }
+
+            // client_address geocoding not required (field removed)
 
             if (turnstileEnabled) {
                 formData.turnstile_token = turnstileToken;
@@ -406,6 +510,7 @@
             const maxAttempts = 20;
 
             const tryRender = function() {
+                if (turnstileRendered || turnstileWidgetId !== null) return;
                 if (window.turnstile && typeof window.turnstile.render === 'function') {
                     turnstileWidgetId = window.turnstile.render('#ts-turnstile', {
                         sitekey: turnstileSiteKey,
@@ -423,6 +528,7 @@
                             showMessage(__('La vérification Turnstile est indisponible sur ce navigateur.'), 'error');
                         }
                     });
+                    turnstileRendered = true;
                     return;
                 }
 
@@ -475,9 +581,10 @@
         function showMessage(message, type = 'info') {
             $message.removeClass('success error loading info');
             if (message) {
-                $message.addClass(type).text(message);
+                $message.addClass(type).text(message).show();
+                try { $message[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
             } else {
-                $message.empty();
+                $message.empty().hide();
             }
         }
 

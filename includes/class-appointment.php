@@ -55,14 +55,14 @@ class TS_Appointment_Manager {
         if (get_option('ts_appointment_google_calendar_enabled')) {
             $google = new TS_Appointment_Google_Calendar();
             // Crée l'événement même si le rendez-vous est en attente afin de bloquer le créneau
-            error_log('TS Appointment: Attempting to create Google Calendar event for appointment ' . $appointment_id);
+            ts_appointment_log('TS Appointment: Attempting to create Google Calendar event for appointment ' . $appointment_id, 'debug');
             $google_event_id = $google->create_event($appointment, false);
             
             if ($google_event_id) {
                 TS_Appointment_Database::update_appointment($appointment_id, array('google_calendar_id' => $google_event_id));
-                error_log('TS Appointment: Google event ID stored: ' . $google_event_id);
+                ts_appointment_log('TS Appointment: Google event ID stored: ' . $google_event_id, 'debug');
             } else {
-                error_log('TS Appointment: Failed to create Google Calendar event for appointment ' . $appointment_id);
+                ts_appointment_log('TS Appointment: Failed to create Google Calendar event for appointment ' . $appointment_id, 'error');
             }
         }
 
@@ -127,13 +127,10 @@ class TS_Appointment_Manager {
             return array('valid' => false, 'message' => __('Lieu de rendez-vous invalide', 'ts-appointment')); 
         }
 
-        // Champs requis conditionnels (adresse client si requis)
+        // Conditional required fields per-location handled via form schema; client address requirement removed
         $selected = null;
         if (is_array($locs)) {
             foreach ($locs as $l) { if (isset($l['key']) && $l['key'] === $data['appointment_type']) { $selected = $l; break; } }
-        }
-        if ($selected && !empty($selected['requireClientAddress']) && empty($data['client_address'])) {
-            return array('valid' => false, 'message' => __('L\'adresse du client est obligatoire pour ce lieu', 'ts-appointment'));
         }
         if ($selected && !empty($selected['fields']) && is_array($selected['fields'])) {
             $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
@@ -184,7 +181,7 @@ class TS_Appointment_Manager {
 
         $ok = TS_Appointment_Database::update_appointment($appointment_id, array('status' => 'confirmed'));
         if ($ok === false) {
-            error_log('TS Appointment: failed to update appointment status for ID ' . $appointment_id);
+            ts_appointment_log('TS Appointment: failed to update appointment status for ID ' . $appointment_id, 'error');
             return false;
         }
         // Met à jour l'objet pour que Google utilise le bon statut
@@ -196,7 +193,7 @@ class TS_Appointment_Manager {
                 $google = new TS_Appointment_Google_Calendar();
                 $google->update_event($appointment);
             } catch (Exception $e) {
-                error_log('TS Appointment: Google update_event failed for appointment ' . $appointment_id . ' - ' . $e->getMessage());
+                ts_appointment_log('TS Appointment: Google update_event failed for appointment ' . $appointment_id . ' - ' . $e->getMessage(), 'error');
             }
         } elseif (get_option('ts_appointment_google_calendar_enabled')) {
             // Si aucun événement n'existait (échec initial), on en crée un maintenant pour bloquer le créneau
@@ -207,14 +204,14 @@ class TS_Appointment_Manager {
                     TS_Appointment_Database::update_appointment($appointment_id, array('google_calendar_id' => $google_event_id));
                 }
             } catch (Exception $e) {
-                error_log('TS Appointment: Google create_event on confirm failed for appointment ' . $appointment_id . ' - ' . $e->getMessage());
+                ts_appointment_log('TS Appointment: Google create_event on confirm failed for appointment ' . $appointment_id . ' - ' . $e->getMessage(), 'error');
             }
         }
 
         try {
             TS_Appointment_Email::send_confirmation($appointment);
         } catch (Exception $e) {
-            error_log('TS Appointment: send_confirmation failed for appointment ' . $appointment_id . ' - ' . $e->getMessage());
+            ts_appointment_log('TS Appointment: send_confirmation failed for appointment ' . $appointment_id . ' - ' . $e->getMessage(), 'error');
         }
 
         do_action('ts_appointment_after_confirm', $appointment_id);
@@ -285,14 +282,14 @@ class TS_Appointment_Manager {
         ));
 
         if (is_wp_error($response)) {
-            error_log('TS Appointment: Turnstile verification error - ' . $response->get_error_message());
+            ts_appointment_log('TS Appointment: Turnstile verification error - ' . $response->get_error_message(), 'error');
             return array('success' => false, 'message' => __('Échec de la vérification anti-robot.', 'ts-appointment'));
         }
 
         $code = wp_remote_retrieve_response_code($response);
         $body = json_decode(wp_remote_retrieve_body($response), true);
         if ($code !== 200 || !is_array($body)) {
-            error_log('TS Appointment: Turnstile unexpected response code=' . $code);
+            ts_appointment_log('TS Appointment: Turnstile unexpected response code=' . $code, 'warning');
             return array('success' => false, 'message' => __('Échec de la vérification anti-robot.', 'ts-appointment'));
         }
 
@@ -301,7 +298,7 @@ class TS_Appointment_Manager {
         }
 
         if (!empty($body['error-codes']) && is_array($body['error-codes'])) {
-            error_log('TS Appointment: Turnstile errors - ' . implode(',', $body['error-codes']));
+            ts_appointment_log('TS Appointment: Turnstile errors - ' . implode(',', $body['error-codes']), 'warning');
         }
 
         return array('success' => false, 'message' => __('Vérification anti-robot invalide ou expirée.', 'ts-appointment'));

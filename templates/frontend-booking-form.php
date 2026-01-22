@@ -24,65 +24,7 @@
                     </select>
                 </div>
 
-                <?php
-                // Render base form from schema
-                $form_schema_json = get_option('ts_appointment_form_schema');
-                $form_schema = json_decode($form_schema_json, true);
-                if (!is_array($form_schema)) { $form_schema = array(); }
-                
-                // Helper function to render a field
-                $render_field = function($field) {
-                    $key = esc_attr($field['key']);
-                    $label = esc_html($field['label']);
-                    $type = isset($field['type']) ? $field['type'] : 'text';
-                    $required = !empty($field['required']);
-                    $placeholder = isset($field['placeholder']) ? esc_attr($field['placeholder']) : '';
-                    $req = $required ? ' required' : '';
-                    $reqMark = $required ? ' <span class="required">*</span>' : '';
-                    
-                    echo '<div class="form-group">';
-                    echo '<label for="' . $key . '">' . $label . $reqMark . '</label>';
-                    
-                    if ($type === 'textarea') {
-                        echo '<textarea id="' . $key . '" name="' . $key . '" rows="3" placeholder="' . $placeholder . '"' . $req . '></textarea>';
-                    } elseif ($type === 'select' && !empty($field['options']) && is_array($field['options'])) {
-                        echo '<select id="' . $key . '" name="' . $key . '"' . $req . '>';
-                        echo '<option value="">' . esc_html__('Sélectionner', 'ts-appointment') . '</option>';
-                        foreach ($field['options'] as $opt) {
-                            echo '<option value="' . esc_attr($opt) . '">' . esc_html($opt) . '</option>';
-                        }
-                        echo '</select>';
-                    } elseif ($type === 'checkbox') {
-                        echo '<label class="checkbox"><input type="checkbox" id="' . $key . '" name="' . $key . '" value="1"' . $req . '> ' . $label . '</label>';
-                    } else {
-                        $html_type = in_array($type, array('text','email','tel','number','date','time')) ? $type : 'text';
-                        echo '<input type="' . esc_attr($html_type) . '" id="' . $key . '" name="' . $key . '" placeholder="' . $placeholder . '"' . $req . '>';
-                    }
-                    
-                    echo '</div>';
-                };
-                
-                // Render fields in two-column rows when possible
-                $buffer = array();
-                foreach ($form_schema as $field) {
-                    $buffer[] = $field;
-                    if (count($buffer) === 2) {
-                        echo '<div class="form-row">';
-                        foreach ($buffer as $bf) { 
-                            $render_field($bf);
-                        }
-                        echo '</div>';
-                        $buffer = array();
-                    }
-                }
-                
-                // Render remaining fields
-                if (!empty($buffer)) {
-                    foreach ($buffer as $bf) {
-                        $render_field($bf);
-                    }
-                }
-                ?>
+                <!-- client info (moved below date/time for progressive reveal) -->
 
                 <?php
                 // Locations radios and per-location extra fields
@@ -109,30 +51,17 @@
                 $business_address = get_option('ts_appointment_business_address');
                 foreach ($locations as $loc) {
                     $lkey = esc_attr($loc['key']);
-                    $showBiz = !empty($loc['showBusinessAddress']);
-                    $requireAddr = !empty($loc['requireClientAddress']);
                     echo '<div class="location-extra" id="loc-extra-'. $lkey .'" style="display:none">';
-                    if ($showBiz && !empty($business_address)) {
-                        echo '<div class="info-box">';
-                        echo '<div class="info-icon">i</div>';
-                        echo '<div class="info-content">' . wpautop(wp_kses_post($business_address)) . '</div>';
-                        echo '</div>';
-                    }
                     if (!empty($loc['note'])) {
                         echo '<div class="info-box">';
                         echo '<div class="info-icon">i</div>';
                         echo '<div class="info-content">' . wpautop(wp_kses_post($loc['note'])) . '</div>';
                         echo '</div>';
                     }
-                    if ($requireAddr) {
-                        echo '<div class="form-group">';
-                        echo '<label for="client_address_' . $lkey . '">' . esc_html__('Adresse du client', 'ts-appointment') . ' <span class="required">*</span></label>';
-                        echo '<textarea id="client_address_' . $lkey . '" name="client_address" rows="3" placeholder="' . esc_attr__('Adresse complète', 'ts-appointment') . '"></textarea>';
-                        echo '</div>';
-                    }
+                    // client address will be rendered centrally in ts-client-info; per-location address removed
                     if (!empty($loc['fields']) && is_array($loc['fields'])) {
                         // Champs système à ne pas dupliquer
-                        $system_fields = array('client_address', 'client_name', 'client_email', 'client_phone', 'notes');
+                        $system_fields = array('client_name', 'client_email', 'client_phone', 'notes');
                         
                         foreach ($loc['fields'] as $field) {
                             $fk = esc_attr($field['key']);
@@ -187,6 +116,75 @@
 
                 <!-- Price display before submit -->
                 <div id="service-price" class="service-price-large" style="display:none;"></div>
+
+                <!-- Client info fields (rendered from schema) -->
+                <div id="ts-client-info" class="client-info" style="display:none;">
+                <?php
+                // Render base form from schema (moved here so sequence is: service -> location -> date/time -> client info)
+                $form_schema_json = get_option('ts_appointment_form_schema');
+                $form_schema = json_decode($form_schema_json, true);
+                if (!is_array($form_schema)) { $form_schema = array(); }
+                
+                // Helper function to render a field (same as original)
+                $render_field = function($field) {
+                    $key = esc_attr($field['key']);
+                    $label = esc_html($field['label']);
+                    $type = isset($field['type']) ? $field['type'] : 'text';
+                    $required = !empty($field['required']);
+                    $visible_locations = isset($field['visible_locations']) && is_array($field['visible_locations']) ? $field['visible_locations'] : array();
+                    $placeholder = isset($field['placeholder']) ? esc_attr($field['placeholder']) : '';
+                    $req = $required ? ' required' : '';
+                    $reqMark = $required ? ' <span class="required">*</span>' : '';
+                    $data_vis = '';
+                    $data_req_attr = $required ? ' data-original-required="1"' : '';
+                    if (!empty($visible_locations)) {
+                        $data_vis = ' data-visible-locations="' . esc_attr(join(',', $visible_locations)) . '"';
+                    }
+                    
+                    echo '<div class="form-group"' . $data_vis . $data_req_attr . '>';
+                    echo '<label for="' . $key . '">' . $label . $reqMark . '</label>';
+                    
+                    if ($type === 'textarea') {
+                        echo '<textarea id="' . $key . '" name="' . $key . '" rows="3" placeholder="' . $placeholder . '"' . $req . '></textarea>';
+                    } elseif ($type === 'select' && !empty($field['options']) && is_array($field['options'])) {
+                        echo '<select id="' . $key . '" name="' . $key . '"' . $req . '>';
+                        echo '<option value="">' . esc_html__('Sélectionner', 'ts-appointment') . '</option>';
+                        foreach ($field['options'] as $opt) {
+                            echo '<option value="' . esc_attr($opt) . '">' . esc_html($opt) . '</option>';
+                        }
+                        echo '</select>';
+                    } elseif ($type === 'checkbox') {
+                        echo '<label class="checkbox"><input type="checkbox" id="' . $key . '" name="' . $key . '" value="1"' . $req . '> ' . $label . '</label>';
+                    } else {
+                        $html_type = in_array($type, array('text','email','tel','number','date','time')) ? $type : 'text';
+                        echo '<input type="' . esc_attr($html_type) . '" id="' . $key . '" name="' . $key . '" placeholder="' . $placeholder . '"' . $req . '>';
+                    }
+                    
+                    echo '</div>';
+                };
+                
+                // Render fields in two-column rows when possible
+                $buffer = array();
+                foreach ($form_schema as $field) {
+                    $buffer[] = $field;
+                    if (count($buffer) === 2) {
+                        echo '<div class="form-row">';
+                        foreach ($buffer as $bf) { 
+                            $render_field($bf);
+                        }
+                        echo '</div>';
+                        $buffer = array();
+                    }
+                }
+                
+                // Render remaining fields
+                if (!empty($buffer)) {
+                    foreach ($buffer as $bf) {
+                        $render_field($bf);
+                    }
+                }
+                ?>
+                </div>
 
                 <!-- Turnstile widget and Submit -->
                 <div class="form-actions">

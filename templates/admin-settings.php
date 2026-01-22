@@ -243,6 +243,15 @@
                         <p class="description"><?php echo esc_html__('Conservez la clé secrète privée. Requis pour vérifier les jetons côté serveur.', 'ts-appointment'); ?></p>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="debug_enabled"><?php echo esc_html__('Activer le mode debug (logs)', 'ts-appointment'); ?></label>
+                    </th>
+                    <td>
+                        <input type="checkbox" id="debug_enabled" name="debug_enabled" value="1" <?php checked(get_option('ts_appointment_debug_enabled'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Active l’enregistrement des logs du plugin et ajoute une entrée "Logs" dans la barre latérale admin (visible uniquement quand activé).', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
             </table>
         </div>
 
