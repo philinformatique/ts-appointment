@@ -61,9 +61,17 @@
                 if ($target.length) {
                     $target.show();
                     $target.find('[required]').prop('required', true);
+                    // focus the info-box for accessibility and UX (scroll into view)
+                    try {
+                        const $info = $target.find('.info-box').first();
+                        if ($info.length) {
+                            if (!$info.attr('tabindex')) $info.attr('tabindex', '-1');
+                            $info[0].focus();
+                            try { $info[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                        }
+                    } catch (e) {}
                 }
                 $appointmentDate.closest('.form-row').show();
-                $appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 toggleClientInfoVisibility(key);
             });
 
@@ -203,6 +211,15 @@
             if ($target.length) {
                 $target.show();
                 $target.find('[required]').prop('required', true);
+                // focus the info-box when location selected
+                try {
+                    const $info = $target.find('.info-box').first();
+                    if ($info.length) {
+                        if (!$info.attr('tabindex')) $info.attr('tabindex', '-1');
+                        $info[0].focus();
+                        try { $info[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                    }
+                } catch (e) {}
             }
             updatePriceDisplay();
             updateDateTimeLabels();
