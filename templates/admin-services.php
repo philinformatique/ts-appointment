@@ -25,8 +25,30 @@ if (!defined('ABSPATH')) {
                 <td><textarea id="service_description" name="service_description" class="large-text" rows="3"><?php echo !empty($edit_service) ? esc_textarea($edit_service->description) : ''; ?></textarea></td>
             </tr>
             <tr>
-                <th><label for="service_duration"><?php _e('Durée (minutes)', 'ts-appointment'); ?></label></th>
-                <td><input type="number" id="service_duration" name="service_duration" min="5" step="5" value="<?php echo !empty($edit_service) ? intval($edit_service->duration) : 60; ?>"></td>
+                <th><label for="service_duration_value"><?php _e('Durée', 'ts-appointment'); ?></label></th>
+                <td>
+                    <?php
+                    $dur_minutes = !empty($edit_service) ? intval($edit_service->duration) : 60;
+                    // choose best unit for display
+                    if ($dur_minutes % 1440 === 0) {
+                        $unit = 'day';
+                        $value = intval($dur_minutes / 1440);
+                    } elseif ($dur_minutes % 60 === 0 && $dur_minutes >= 60) {
+                        $unit = 'hour';
+                        $value = intval($dur_minutes / 60);
+                    } else {
+                        $unit = 'minute';
+                        $value = $dur_minutes;
+                    }
+                    ?>
+                    <input type="number" id="service_duration_value" name="service_duration_value" min="1" step="1" value="<?php echo esc_attr($value); ?>" style="width:100px;"> 
+                    <select id="service_duration_unit" name="service_duration_unit">
+                        <option value="minute" <?php selected($unit, 'minute'); ?>><?php _e('minutes', 'ts-appointment'); ?></option>
+                        <option value="hour" <?php selected($unit, 'hour'); ?>><?php _e('heures', 'ts-appointment'); ?></option>
+                        <option value="day" <?php selected($unit, 'day'); ?>><?php _e('jours', 'ts-appointment'); ?></option>
+                    </select>
+                    <p class="description"><?php _e('Entrez la durée et choisissez l\'unité (minutes, heures, jours). La valeur est convertie en minutes pour stockage.', 'ts-appointment'); ?></p>
+                </td>
             </tr>
             <tr>
                 <th><?php _e('Prix par lieu', 'ts-appointment'); ?></th>
@@ -87,7 +109,7 @@ if (!defined('ABSPATH')) {
                 <?php foreach ($services as $service) : ?>
                     <tr>
                         <td><?php echo esc_html($service->name); ?></td>
-                        <td><?php echo intval($service->duration); ?> <?php _e('min', 'ts-appointment'); ?></td>
+                        <td><?php echo esc_html(ts_appointment_format_duration(intval($service->duration))); ?></td>
                         <td>
                             <?php
                             $currency_symbol = get_option('ts_appointment_currency_symbol', '€');

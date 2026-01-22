@@ -26,3 +26,23 @@ if (!function_exists('ts_appointment_log')) {
         @file_put_contents($log_file, $entry, FILE_APPEND | LOCK_EX);
     }
 }
+
+if (!function_exists('ts_appointment_format_duration')) {
+    /**
+     * Format duration given in minutes to a human readable string.
+     * Examples: 90 -> "90 min", 60 -> "1 h", 120 -> "2 h", 1440 -> "1 j"
+     */
+    function ts_appointment_format_duration($minutes) {
+        $m = intval($minutes);
+        if ($m <= 0) return '0 min';
+        if ($m % 1440 === 0) {
+            $d = intval($m / 1440);
+            return $d . ' ' . _n('jour', 'jours', $d, 'ts-appointment');
+        }
+        if ($m % 60 === 0 && $m >= 60) {
+            $h = intval($m / 60);
+            return $h . ' ' . _n('h', 'h', $h, 'ts-appointment');
+        }
+        return $m . ' ' . _n('min', 'min', $m, 'ts-appointment');
+    }
+}

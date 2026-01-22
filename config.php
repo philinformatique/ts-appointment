@@ -48,22 +48,7 @@ if (!defined('TS_APPOINTMENT_CONFIG_LOADED')) {
     }
 
     // ==================== Fonctions utilitaires ====================
-    if (!function_exists('ts_appointment_log')) {
-        function ts_appointment_log($message, $level = 'info') {
-            $const_debug = defined('TS_APPOINTMENT_DEBUG') && TS_APPOINTMENT_DEBUG;
-            $opt_debug = false;
-            if (function_exists('get_option')) {
-                $opt_debug = (bool) get_option('ts_appointment_debug_enabled', false);
-            }
-            if (!$const_debug && !$opt_debug) return;
-            
-            $log_file = TS_APPOINTMENT_DIR . 'debug.log';
-            $timestamp = current_time('mysql');
-            $log_message = "[{$timestamp}] [{$level}] {$message}\n";
-            
-            error_log($log_message, 3, $log_file);
-        }
-    }
+    // Logging helper is provided by includes/helpers.php. Do not redefine here to avoid duplication.
 
     if (!function_exists('ts_appointment_cache_get')) {
         function ts_appointment_cache_get($key) {

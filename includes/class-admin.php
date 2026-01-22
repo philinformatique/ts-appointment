@@ -64,6 +64,24 @@ class TS_Appointment_Admin {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce'])) {
             if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_settings')) {
                 self::save_settings();
+
+                // If Mailgun test button pressed, attempt to send test email
+                if (!empty($_POST['mailgun_send_test'])) {
+                    $test_to = sanitize_email($_POST['mailgun_test_to'] ?? get_option('admin_email'));
+                    $subject = __('Test email Mailgun', 'ts-appointment');
+                    $body = __('Ceci est un email de test envoyé via l\'API Mailgun.', 'ts-appointment');
+                    $headers = array('Content-Type: text/html; charset=UTF-8');
+                    $sent = false;
+                    if (class_exists('TS_Appointment_Email')) {
+                        $sent = TS_Appointment_Email::send_via_mailgun($test_to, $subject, $body, $headers);
+                    }
+                    if ($sent) {
+                        echo '<div class="notice notice-success"><p>' . __('Email de test envoyé avec succès via Mailgun.', 'ts-appointment') . '</p></div>';
+                    } else {
+                        echo '<div class="notice notice-error"><p>' . __('Echec de l\'envoi via Mailgun. Vérifiez la configuration et consultez les logs.', 'ts-appointment') . '</p></div>';
+                    }
+                }
+
                 echo '<div class="notice notice-success"><p>' . __('Paramètres enregistrés avec succès.', 'ts-appointment') . '</p></div>';
             }
         }
@@ -442,10 +460,18 @@ class TS_Appointment_Admin {
                         }
                     }
 
+                    // duration: accept value + unit
+                    $dur_val = isset($_POST['service_duration_value']) ? intval($_POST['service_duration_value']) : intval($_POST['service_duration'] ?? 60);
+                    $dur_unit = isset($_POST['service_duration_unit']) ? sanitize_text_field($_POST['service_duration_unit']) : 'minute';
+                    $mult = 1;
+                    if ($dur_unit === 'hour') $mult = 60;
+                    if ($dur_unit === 'day') $mult = 1440;
+                    $duration_minutes = max(1, $dur_val * $mult);
+
                     $data = array(
                         'name' => sanitize_text_field($_POST['service_name'] ?? ''),
                         'description' => sanitize_textarea_field($_POST['service_description'] ?? ''),
-                        'duration' => intval($_POST['service_duration'] ?? 60),
+                        'duration' => intval($duration_minutes),
                         'price' => !empty($price_by_location) ? wp_json_encode($price_by_location) : '0',
                         'active' => isset($_POST['service_active']) ? 1 : 0,
                     );
@@ -471,10 +497,18 @@ class TS_Appointment_Admin {
                             $price_by_location[sanitize_key($loc_key)] = floatval($price_val);
                         }
                     }
+                    // duration: accept value + unit
+                    $dur_val = isset($_POST['service_duration_value']) ? intval($_POST['service_duration_value']) : intval($_POST['service_duration'] ?? 60);
+                    $dur_unit = isset($_POST['service_duration_unit']) ? sanitize_text_field($_POST['service_duration_unit']) : 'minute';
+                    $mult = 1;
+                    if ($dur_unit === 'hour') $mult = 60;
+                    if ($dur_unit === 'day') $mult = 1440;
+                    $duration_minutes = max(1, $dur_val * $mult);
+
                     $data = array(
                         'name' => sanitize_text_field($_POST['service_name'] ?? ''),
                         'description' => sanitize_textarea_field($_POST['service_description'] ?? ''),
-                        'duration' => intval($_POST['service_duration'] ?? 60),
+                        'duration' => intval($duration_minutes),
                         'price' => !empty($price_by_location) ? wp_json_encode($price_by_location) : '0',
                         'active' => isset($_POST['service_active']) ? 1 : 0,
                     );
@@ -554,6 +588,11 @@ class TS_Appointment_Admin {
             'turnstile_site_key',
             'turnstile_secret_key',
             'debug_enabled',
+            // Mailgun settings
+            'mailgun_enabled',
+            'mailgun_global_enabled',
+            'mailgun_domain',
+            'mailgun_api_key',
             // JSON configs
             'locations_config',
             'form_schema',
@@ -571,7 +610,7 @@ class TS_Appointment_Admin {
         }
 
         // Gestion explicite des cases à cocher pour éviter de conserver un état activé quand décochées
-        $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled');
+            $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled', 'mailgun_enabled', 'mailgun_global_enabled');
         foreach ($checkboxes as $checkbox) {
             if (!isset($_POST[$checkbox])) {
                 update_option('ts_appointment_' . $checkbox, 0);

@@ -83,6 +83,10 @@ class TS_Appointment {
         require_once TS_APPOINTMENT_DIR . 'includes/class-frontend.php';
         require_once TS_APPOINTMENT_DIR . 'includes/class-rest-api.php';
         require_once TS_APPOINTMENT_DIR . 'includes/class-email.php';
+        // If Mailgun global override is enabled, intercept wp_mail calls
+        if (class_exists('TS_Appointment_Email')) {
+            add_filter('pre_wp_mail', array('TS_Appointment_Email', 'mailgun_pre_wp_mail'), 10, 2);
+        }
     }
 
     public function activate() {
@@ -357,3 +361,111 @@ function ts_appointment_init() {
 }
 
 add_action('plugins_loaded', 'ts_appointment_init', 0);
+
+// -----------------------------
+// GitHub updater (basic)
+// -----------------------------
+if (!defined('TS_APPOINTMENT_GITHUB_REPO')) {
+    define('TS_APPOINTMENT_GITHUB_REPO', 'philinformatique/ts-appointment');
+}
+
+/**
+ * Check GitHub for a newer release and inject plugin update info into WP update transient.
+ */
+function ts_appointment_check_for_update($transient) {
+    if (empty($transient) || empty($transient->checked)) {
+        return $transient;
+    }
+
+    $plugin_basename = TS_APPOINTMENT_BASENAME;
+    $current_version = TS_APPOINTMENT_VERSION;
+
+    // Cache GitHub response for 1 hour to avoid rate limits
+    $cache_key = 'ts_appointment_github_release';
+    $release = get_transient($cache_key);
+    if ($release === false) {
+        $api = 'https://api.github.com/repos/' . TS_APPOINTMENT_GITHUB_REPO . '/releases/latest';
+        $response = wp_remote_get($api, array(
+            'headers' => array('User-Agent' => 'WordPress/' . get_bloginfo('version') . ' ts-appointment'),
+            'timeout' => 15,
+        ));
+        if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+            $body = wp_remote_retrieve_body($response);
+            $data = json_decode($body);
+            if (is_object($data) && !empty($data->tag_name)) {
+                $release = $data;
+                set_transient($cache_key, $release, HOUR_IN_SECONDS);
+            } else {
+                // fallback: try tags endpoint
+                $tags_api = 'https://api.github.com/repos/' . TS_APPOINTMENT_GITHUB_REPO . '/tags';
+                $r2 = wp_remote_get($tags_api, array('headers' => array('User-Agent' => 'WordPress/' . get_bloginfo('version') . ' ts-appointment'), 'timeout' => 15));
+                if (!is_wp_error($r2) && wp_remote_retrieve_response_code($r2) === 200) {
+                    $tags = json_decode(wp_remote_retrieve_body($r2));
+                    if (is_array($tags) && !empty($tags[0]->name)) {
+                        $release = new stdClass();
+                        $release->tag_name = $tags[0]->name;
+                        $release->zipball_url = $tags[0]->zipball_url ?? '';
+                        set_transient($cache_key, $release, HOUR_IN_SECONDS);
+                    }
+                }
+            }
+        }
+    }
+
+    if (empty($release) || empty($release->tag_name)) {
+        return $transient;
+    }
+
+    // Normalize tag (strip leading v)
+    $remote_version = ltrim($release->tag_name, "vV");
+    if (version_compare($remote_version, $current_version, '>')) {
+        $package = !empty($release->zipball_url) ? $release->zipball_url : 'https://github.com/' . TS_APPOINTMENT_GITHUB_REPO . '/archive/refs/tags/' . $release->tag_name . '.zip';
+
+        $update = new stdClass();
+        $update->slug = dirname(TS_APPOINTMENT_BASENAME);
+        $update->new_version = $remote_version;
+        $update->url = 'https://github.com/' . TS_APPOINTMENT_GITHUB_REPO;
+        $update->package = $package;
+
+        $transient->response[$plugin_basename] = $update;
+    }
+
+    return $transient;
+}
+add_filter('pre_set_site_transient_update_plugins', 'ts_appointment_check_for_update');
+
+/**
+ * Provide plugin information for the plugin details modal via GitHub release notes.
+ */
+function ts_appointment_plugins_api_handler($result, $action, $args) {
+    if ($action !== 'plugin_information') return $result;
+    $plugin_basename = TS_APPOINTMENT_BASENAME;
+
+    // If requested plugin matches ours
+    if (!empty($args->slug) && (strpos($plugin_basename, $args->slug) === false) && ($args->slug !== dirname($plugin_basename))) {
+        return $result;
+    }
+
+    // Fetch cached release
+    $release = get_transient('ts_appointment_github_release');
+    if ($release === false) {
+        // Force a check
+        ts_appointment_check_for_update(get_site_transient('update_plugins'));
+        $release = get_transient('ts_appointment_github_release');
+    }
+    if (empty($release)) return $result;
+
+    $remote_version = ltrim($release->tag_name, "vV");
+    $plugin_info = new stdClass();
+    $plugin_info->name = 'TS Appointment';
+    $plugin_info->slug = dirname($plugin_basename);
+    $plugin_info->version = $remote_version;
+    $plugin_info->author = 'philinformatique';
+    $plugin_info->homepage = 'https://github.com/' . TS_APPOINTMENT_GITHUB_REPO;
+    $plugin_info->download_link = !empty($release->zipball_url) ? $release->zipball_url : 'https://github.com/' . TS_APPOINTMENT_GITHUB_REPO . '/archive/refs/tags/' . $release->tag_name . '.zip';
+    $plugin_info->sections = array();
+    $plugin_info->sections['description'] = isset($release->body) ? wp_kses_post($release->body) : '';
+
+    return $plugin_info;
+}
+add_filter('plugins_api', 'ts_appointment_plugins_api_handler', 20, 3);

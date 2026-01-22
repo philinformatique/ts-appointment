@@ -255,6 +255,51 @@
             </table>
         </div>
 
+        <div class="settings-section">
+            <h2><?php echo esc_html__('Mailgun (envoi d\'emails)', 'ts-appointment'); ?></h2>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="mailgun_enabled"><?php echo esc_html__('Activer Mailgun pour les emails du plugin', 'ts-appointment'); ?></label>
+                    </th>
+                    <td>
+                        <input type="checkbox" id="mailgun_enabled" name="mailgun_enabled" value="1" <?php checked(get_option('ts_appointment_mailgun_enabled'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Utiliser Mailgun pour les emails envoyés par ce plugin (confirmation, notifications).', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="mailgun_global_enabled"><?php echo esc_html__('Remplacer globalement wp_mail', 'ts-appointment'); ?></label>
+                    </th>
+                    <td>
+                        <input type="checkbox" id="mailgun_global_enabled" name="mailgun_global_enabled" value="1" <?php checked(get_option('ts_appointment_mailgun_global_enabled'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Si activé, toutes les utilisations de wp_mail() seront routées via l\'API Mailgun.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="mailgun_domain"><?php echo esc_html__('Domaine Mailgun', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="text" id="mailgun_domain" name="mailgun_domain" value="<?php echo esc_attr(get_option('ts_appointment_mailgun_domain')); ?>" class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="mailgun_api_key"><?php echo esc_html__('API Key', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="password" id="mailgun_api_key" name="mailgun_api_key" value="<?php echo esc_attr(get_option('ts_appointment_mailgun_api_key')); ?>" class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="mailgun_test_to"><?php echo esc_html__('Email de test', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="email" id="mailgun_test_to" name="mailgun_test_to" value="<?php echo esc_attr(get_option('admin_email')); ?>" class="regular-text">
+                        <p class="description"><?php echo esc_html__('Adresse email à utiliser pour le test d\'envoi Mailgun.', 'ts-appointment'); ?></p>
+                        <p><button class="button button-secondary" type="submit" name="mailgun_send_test" value="1"><?php echo esc_html__('Envoyer un email de test', 'ts-appointment'); ?></button></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
         <?php submit_button(); ?>
     </form>
 </div>

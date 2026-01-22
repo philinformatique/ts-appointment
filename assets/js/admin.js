@@ -110,89 +110,43 @@
             });
         }
 
+        function __(text) {
+            try {
+                return (tsAppointment && tsAppointment.i18n && tsAppointment.i18n[text]) ? tsAppointment.i18n[text] : text;
+            } catch (e) {
+                return text;
+            }
+        }
+
         function displayAppointmentModal(appointment) {
-            // Get location labels from localized data
             const locationLabels = tsAppointment.locationLabels || {};
 
             const statusLabels = {
-                'pending': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['En attente']) ? tsAppointment.i18n['En attente'] : 'En attente',
-                'confirmed': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Confirmé']) ? tsAppointment.i18n['Confirmé'] : 'Confirmé',
-                'completed': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Complété']) ? tsAppointment.i18n['Complété'] : 'Complété',
-                'cancelled': (tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Annulé']) ? tsAppointment.i18n['Annulé'] : 'Annulé'
+                'pending': __('En attente'),
+                'confirmed': __('Confirmé'),
+                'completed': __('Complété'),
+                'cancelled': __('Annulé')
             };
 
-            const dateTime = new Date(appointment.appointment_date + 'T' + appointment.appointment_time);
-            const formattedDate = dateTime.toLocaleDateString('fr-FR');
-            const formattedTime = dateTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+            const dateTime = new Date((appointment.appointment_date || '') + 'T' + (appointment.appointment_time || ''));
+            const formattedDate = isNaN(dateTime.getTime()) ? '' : dateTime.toLocaleDateString('fr-FR');
+            const formattedTime = isNaN(dateTime.getTime()) ? '' : dateTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
             const modal = `
-                <div style="
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.7);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 10000;
-                " class="appointment-modal-bg">
-                    <div style="
-                        background: white;
-                        padding: 30px;
-                        border-radius: 8px;
-                        max-width: 500px;
-                        width: 90%;
-                    " class="appointment-modal">
-                        <h2 style="margin-top: 0; margin-bottom: 20px; color: #007cba;">" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Détails du rendez-vous']) ? tsAppointment.i18n['Détails du rendez-vous'] : 'Détails du rendez-vous') + "</h2>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Nom:']) ? tsAppointment.i18n['Nom:'] : 'Nom:') + "</strong> ${appointment.client_name}
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Email:']) ? tsAppointment.i18n['Email:'] : 'Email:') + "</strong> ${appointment.client_email}
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Téléphone:']) ? tsAppointment.i18n['Téléphone:'] : 'Téléphone:') + "</strong> ${appointment.client_phone}
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Date:']) ? tsAppointment.i18n['Date:'] : 'Date:') + "</strong> ${formattedDate} à ${formattedTime}
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Type:']) ? tsAppointment.i18n['Type:'] : 'Type:') + "</strong> ${locationLabels[appointment.appointment_type] || appointment.appointment_type}
-                        </div>
-                        ${appointment.client_address ? `
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Adresse:']) ? tsAppointment.i18n['Adresse:'] : 'Adresse:') + "</strong> ${appointment.client_address}
-                        </div>
-                        ` : ''}
-                        ${appointment.notes ? `
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Notes:']) ? tsAppointment.i18n['Notes:'] : 'Notes:') + "</strong> ${appointment.notes}
-                        </div>
-                        ` : ''}
-                        <div style="margin-bottom: 15px;">
-                            <strong>" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Statut:']) ? tsAppointment.i18n['Statut:'] : 'Statut:') + "</strong> <span style="
-                                display: inline-block;
-                                padding: 4px 8px;
-                                border-radius: 4px;
-                                background: #f0f0f0;
-                                color: #333;
-                            ">${statusLabels[appointment.status] || appointment.status}</span>
-                        </div>
-                        
-                        <div style="margin-top: 25px; text-align: right;">
-                            <button class="close-modal" style="
-                                padding: 8px 16px;
-                                background: #007cba;
-                                color: white;
-                                border: none;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-weight: 600;
-                            ">" + ((tsAppointment && tsAppointment.i18n && tsAppointment.i18n['Fermer']) ? tsAppointment.i18n['Fermer'] : 'Fermer') + "</button>
-                        </div>
+                <div style="position: fixed;top: 0;left: 0;right: 0;bottom: 0;background: rgba(0,0,0,0.7);display: flex;align-items: center;justify-content: center;z-index: 10000;" class="appointment-modal-bg">
+                    <div style="background: white;padding: 30px;border-radius: 8px;max-width: 500px;width: 90%;" class="appointment-modal">
+                        <h2 style="margin-top: 0; margin-bottom: 20px; color: #007cba;">${__('Détails du rendez-vous')}</h2>
+
+                        <div style="margin-bottom: 15px;"><strong>${__('Nom:')}</strong> ${appointment.client_name || ''}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Email:')}</strong> ${appointment.client_email || ''}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Téléphone:')}</strong> ${appointment.client_phone || ''}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Date:')}</strong> ${formattedDate} ${formattedTime ? 'à ' + formattedTime : ''}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Type:')}</strong> ${locationLabels[appointment.appointment_type] || appointment.appointment_type || ''}</div>
+                        ${appointment.client_address ? `<div style="margin-bottom: 15px;"><strong>${__('Adresse:')}</strong> ${appointment.client_address}</div>` : ''}
+                        ${appointment.notes ? `<div style="margin-bottom: 15px;"><strong>${__('Notes:')}</strong> ${appointment.notes}</div>` : ''}
+                        <div style="margin-bottom: 15px;"><strong>${__('Statut:')}</strong> <span style="display: inline-block;padding: 4px 8px;border-radius: 4px;background: #f0f0f0;color: #333;">${statusLabels[appointment.status] || appointment.status || ''}</span></div>
+
+                        <div style="margin-top: 25px; text-align: right;"><button class="close-modal" style="padding: 8px 16px;background: #007cba;color: white;border: none;border-radius: 4px;cursor: pointer;font-weight: 600;">${__('Fermer')}</button></div>
                     </div>
                 </div>
             `;

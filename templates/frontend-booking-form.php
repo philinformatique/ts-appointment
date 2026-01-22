@@ -18,7 +18,8 @@
                                 $price_map = array('default' => is_numeric($price_raw) ? floatval($price_raw) : $price_raw);
                             }
                             $data_prices = esc_attr(wp_json_encode($price_map));
-                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '">' . esc_html($service->name) . '</option>';
+                            $readable = esc_html(ts_appointment_format_duration(intval($service->duration)));
+                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '" data-duration-readable="' . esc_attr($readable) . '">' . esc_html($service->name) . '</option>';
                         }
                         ?>
                     </select>
@@ -97,16 +98,18 @@
                     }
                     echo '</div>';
                 }
+                // Price display (placed between location-extra blocks and the date/time row)
+                echo '<div id="service-price" class="service-price-large" style="display:none;"></div>';
                 ?>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="appointment_date"><?php echo esc_html__('Date', 'ts-appointment'); ?> <span class="required">*</span></label>
+                        <label for="appointment_date"><span id="appointment_date_label"><?php echo esc_html__('Choisir une date', 'ts-appointment'); ?></span> <span class="required">*</span></label>
                         <input type="date" id="appointment_date" name="appointment_date" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="appointment_time"><?php echo esc_html__('Heure', 'ts-appointment'); ?> <span class="required">*</span></label>
+                        <label for="appointment_time"><span id="appointment_time_label"><?php echo esc_html__('Choisir une heure', 'ts-appointment'); ?></span> <span class="required">*</span></label>
                         <input type="hidden" id="appointment_time" name="appointment_time" value="">
                         <div id="appointment-time-slots" class="time-slots-grid">
                             <!-- Rempli par JavaScript -->
@@ -114,8 +117,6 @@
                     </div>
                 </div>
 
-                <!-- Price display before submit -->
-                <div id="service-price" class="service-price-large" style="display:none;"></div>
 
                 <!-- Client info fields (rendered from schema) -->
                 <div id="ts-client-info" class="client-info" style="display:none;">

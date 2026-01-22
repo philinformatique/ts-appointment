@@ -26,6 +26,8 @@
         let turnstileWidgetId = null;
         let turnstileRendered = false;
 
+        
+
         // Initialize progressive reveal UI and mobile interactions
         function initProgressiveReveal() {
             // Hide everything except service selector initially
@@ -65,38 +67,13 @@
                 toggleClientInfoVisibility(key);
             });
 
-        // Toggle client-info visibility helper (trims values, restores original required flag)
-        function toggleClientInfoVisibility(key) {
-            try {
-                $('#ts-client-info').find('.form-group').each(function() {
-                    const $fg = $(this);
-                    const vis = $fg.attr('data-visible-locations');
-                    if (!vis || vis.trim().length === 0) {
-                        $fg.show();
-                        // restore original required if present
-                        if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true);
-                        }
-                        return;
-                    }
-                    const allowed = vis.split(',').map(function(s){ return s.trim(); });
-                    if (allowed.indexOf(key) !== -1) {
-                        $fg.show();
-                        if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true);
-                        }
-                    } else {
-                        $fg.hide();
-                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false); } catch (e) {} });
-                    }
-                });
-            } catch (e) {}
-        }
+            // client-info visibility and date/time label helpers are declared below
 
             // Reveal times after date is picked (fetch will populate)
             $appointmentDate.on('change.reveal', function(){
                 $appointmentTimeSlots.closest('.form-group').show();
                 $appointmentTimeSlots[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                updateDateTimeLabels();
             });
 
             // Enhance selection to reveal submit and price
@@ -166,6 +143,58 @@
 
         initProgressiveReveal();
 
+        // Toggle client-info visibility helper (trims values, restores original required flag)
+        function toggleClientInfoVisibility(key) {
+            try {
+                $('#ts-client-info').find('.form-group').each(function() {
+                    const $fg = $(this);
+                    const vis = $fg.attr('data-visible-locations');
+                    if (!vis || vis.trim().length === 0) {
+                        $fg.show();
+                        // restore original required if present
+                        if ($fg.attr('data-original-required')) {
+                            $fg.find('[name]').prop('required', true);
+                        }
+                        return;
+                    }
+                    const allowed = vis.split(',').map(function(s){ return s.trim(); });
+                    if (allowed.indexOf(key) !== -1) {
+                        $fg.show();
+                        if ($fg.attr('data-original-required')) {
+                            $fg.find('[name]').prop('required', true);
+                        }
+                    } else {
+                        $fg.hide();
+                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false); } catch (e) {} });
+                    }
+                });
+            } catch (e) {}
+        }
+
+        // Update the date/time label texts depending on whether a value is present
+        function updateDateTimeLabels() {
+            try {
+                var dateVal = $appointmentDate.val();
+                var timeVal = $appointmentTime.val();
+                var dateLabel = document.getElementById('appointment_date_label');
+                var timeLabel = document.getElementById('appointment_time_label');
+                if (dateLabel) {
+                    if (!dateVal) {
+                        dateLabel.textContent = __('Choisir une date');
+                    } else {
+                        dateLabel.textContent = __('Date');
+                    }
+                }
+                if (timeLabel) {
+                    if (!timeVal) {
+                        timeLabel.textContent = __('Choisir une heure');
+                    } else {
+                        timeLabel.textContent = __('Heure');
+                    }
+                }
+            } catch (e) {}
+        }
+
         // Afficher/masquer les champs supplémentaires selon le lieu
         $(document).on('change', 'input[name="appointment_type"]', function() {
             const key = $(this).val();
@@ -176,6 +205,7 @@
                 $target.find('[required]').prop('required', true);
             }
             updatePriceDisplay();
+            updateDateTimeLabels();
             // Ensure date field is visible (robust fallback in case reveal namespaced handler didn't run)
             try {
                 $appointmentDate.closest('.form-group').show();
@@ -194,10 +224,12 @@
 
             if (!serviceId || !date) {
                 $appointmentTime.prop('disabled', true);
+                updateDateTimeLabels();
                 return;
             }
 
             fetchAvailableSlots(serviceId, date);
+            updateDateTimeLabels();
         });
 
         $serviceId.on('change', function() {
@@ -260,6 +292,7 @@
             $appointmentTime.val($btn.data('time'));
             // Notify progressive reveal logic that a slot was selected
             try { $(document).trigger('tsSlotSelected.reveal', [$btn]); } catch (e) {}
+            updateDateTimeLabels();
         }
 
         // Charger les créneaux disponibles via API
@@ -352,10 +385,14 @@
             const display = currencyPosition === 'left' ? (currencySymbol + formatted) : (formatted + currencySymbol);
             
             let durationText = '';
-            if (duration) {
-                durationText = ' • ' + duration + ' min';
+            // if duration equals 60 minutes, show tariff wording; otherwise use readable text from data-duration-readable
+            const durationReadable = selectedOption.data('duration-readable');
+            if (parseInt(duration, 10) === 60) {
+                durationText = ' • ' + __('Tarif horaire');
+            } else if (durationReadable) {
+                durationText = ' • ' + durationReadable;
             }
-            
+
             $priceBox.text(display + durationText).show();
 
             // Filter location cards according to prices: hide locations explicitly priced at 0
@@ -488,6 +525,7 @@
                                 window.turnstile.reset(turnstileWidgetId);
                                 turnstileToken = '';
                             }
+                            updateDateTimeLabels();
                         }, 2000);
                     } else {
                         showMessage(response.message || __('Une erreur est survenue'), 'error');
