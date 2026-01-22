@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: TS Appointment
- * Plugin URI: https://techno-solution.ca
+ * Plugin URI: https://techno-solution.ca/ts-appointment
  * Description: Plugin de prise de rendez-vous avec synchronisation Google Agenda
  * Version: 1.0.0
  * Author: TS Appointment
