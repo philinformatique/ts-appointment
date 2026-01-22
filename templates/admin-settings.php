@@ -300,6 +300,21 @@
             </table>
         </div>
 
+        <div class="settings-section">
+            <h2><?php echo esc_html__('Mises à jour', 'ts-appointment'); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><?php echo esc_html__('GitHub', 'ts-appointment'); ?></th>
+                    <td>
+                        <p class="description"><?php echo esc_html__('Forcer la vérification des releases GitHub pour détecter les mises à jour disponibles.', 'ts-appointment'); ?></p>
+                        <p><button class="button button-secondary" type="submit" name="force_github_check" value="1"><?php echo esc_html__('Forcer vérification GitHub', 'ts-appointment'); ?></button></p>
+                        <p class="description"><?php echo esc_html__('Ou, si ce dossier est un dépôt Git, exécuter un `git pull` pour récupérer directement la branche configurée (utile pour debug local).', 'ts-appointment'); ?></p>
+                        <p><button class="button button-secondary" type="submit" name="git_pull" value="1" onclick="return confirm('<?php echo esc_js(esc_html__('Confirmer git pull? Ceci mettra à jour les fichiers du plugin depuis le dépôt distant.', 'ts-appointment')); ?>')"><?php echo esc_html__('Executer git pull', 'ts-appointment'); ?></button></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
         <?php submit_button(); ?>
     </form>
 </div>

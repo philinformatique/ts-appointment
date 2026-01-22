@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: TS Appointment
- * Plugin URI: https://ts-appointment.local
- * Description: Plugin de prise de rendez-vous type Calendly avec synchronisation Google Agenda
+ * Plugin URI: https://techno-solution.ca
+ * Description: Plugin de prise de rendez-vous avec synchronisation Google Agenda
  * Version: 1.0.0
  * Author: TS Appointment
- * Author URI: https://ts-appointment.local
+ * Author URI: https://techno-solution.ca
  * Text Domain: ts-appointment
  * Domain Path: /languages
  * License: GPL-2.0-or-later
@@ -133,19 +133,6 @@ class TS_Appointment {
         }
 
         wp_enqueue_script('ts-appointment-frontend', TS_APPOINTMENT_URL . 'assets/js/frontend.js', $deps, TS_APPOINTMENT_VERSION, true);
-
-        // Default i18n (French) used if no other mapping is provided
-        $default_i18n = array(
-            'Chargement...' => 'Chargement...',
-            'Erreur lors du chargement des créneaux' => 'Erreur lors du chargement des créneaux',
-            'Aucun créneau disponible pour cette date' => 'Aucun créneau disponible pour cette date',
-            'Veuillez remplir tous les champs obligatoires' => 'Veuillez remplir tous les champs obligatoires',
-            '✓ Rendez-vous réservé avec succès! Vous recevrez une confirmation par email.' => '✓ Rendez-vous réservé avec succès! Vous recevrez une confirmation par email.',
-            'Erreur lors de la réservation' => 'Erreur lors de la réservation',
-            'La vérification Turnstile est indisponible sur ce navigateur.' => 'La vérification Turnstile est indisponible sur ce navigateur.',
-            'Merci de valider le contrôle anti-robot.' => 'Merci de valider le contrôle anti-robot.',
-            'Erreur lors du chargement' => 'Erreur lors du chargement',
-        );
 
         // Load en_US map when site locale is en_US or en_CA; otherwise use default French
         $runtime_i18n = $default_i18n;

@@ -82,6 +82,58 @@ class TS_Appointment_Admin {
                     }
                 }
 
+                // If admin requested to force GitHub check, clear cached transient and update_plugins transient
+                if (!empty($_POST['force_github_check'])) {
+                    delete_transient('ts_appointment_github_release');
+                    // remove update_plugins site transient so WP will re-check
+                    if (function_exists('delete_site_transient')) {
+                        delete_site_transient('update_plugins');
+                    } else {
+                        // fallback
+                        delete_transient('update_plugins');
+                    }
+                    echo '<div class="notice notice-success"><p>' . __('Vérification GitHub forcée — cache vidé. Allez sur Mises à jour pour actualiser.', 'ts-appointment') . '</p></div>';
+                }
+
+                // If admin requested to perform a git pull (useful for local debug environments)
+                if (!empty($_POST['git_pull'])) {
+                    if (!current_user_can('manage_options')) {
+                        echo '<div class="notice notice-error"><p>' . __('Permission refusée.', 'ts-appointment') . '</p></div>';
+                    } else {
+                        $git_dir = rtrim(TS_APPOINTMENT_DIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '.git';
+                        if (!is_dir($git_dir) && !file_exists($git_dir)) {
+                            echo '<div class="notice notice-error"><p>' . __('Impossible d\'exécuter git pull : ce dossier ne semble pas être un dépôt Git.', 'ts-appointment') . '</p></div>';
+                        } else {
+                            $real = realpath(TS_APPOINTMENT_DIR);
+                            $cmd = 'git -C ' . escapeshellarg($real) . ' pull 2>&1';
+                            $output = '';
+                            $status = null;
+                            if (function_exists('shell_exec')) {
+                                $output = shell_exec($cmd);
+                            } elseif (function_exists('exec')) {
+                                $out_arr = array();
+                                exec($cmd, $out_arr, $status);
+                                $output = implode("\n", $out_arr);
+                            } elseif (function_exists('passthru')) {
+                                ob_start();
+                                passthru($cmd, $status);
+                                $output = ob_get_clean();
+                            } else {
+                                echo '<div class="notice notice-error"><p>' . __('L\'exécution de commandes shell est désactivée sur ce serveur.', 'ts-appointment') . '</p></div>';
+                                $output = '';
+                            }
+
+                            if ($output !== null) {
+                                $out = trim((string)$output);
+                                if (strlen($out) > 10000) {
+                                    $out = substr($out, 0, 10000) . "\n... (truncated)";
+                                }
+                                echo '<div class="notice notice-info"><p>' . __('Sortie de git pull :', 'ts-appointment') . '</p><pre style="white-space:pre-wrap;">' . esc_html($out) . '</pre></div>';
+                            }
+                        }
+                    }
+                }
+
                 echo '<div class="notice notice-success"><p>' . __('Paramètres enregistrés avec succès.', 'ts-appointment') . '</p></div>';
             }
         }
