@@ -60,10 +60,15 @@
                 const $target = $('#loc-extra-' + key);
                 if ($target.length) {
                     $target.show();
-                    $target.find('[required]').prop('required', true);        
+                    $target.find('[required]').prop('required', true);
+                    // Focus the specific location-extra container for accessibility
+                    try {
+                        if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
+                        $target[0].focus();
+                        try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                    } catch (e) {}
                 }
                 $appointmentDate.closest('.form-row').show();
-                $locationExtras[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 toggleClientInfoVisibility(key);
             });
 
@@ -198,19 +203,16 @@
             const key = $(this).val();
             $locationExtras.hide().find('textarea, input, select').prop('required', false);
             const $target = $('#loc-extra-' + key);
-            if ($target.length) {
-                $target.show();
-                $target.find('[required]').prop('required', true);
-                // focus the info-box when location selected
-                try {
-                    const $info = $target.find('.info-box').first();
-                    if ($info.length) {
-                        if (!$info.attr('tabindex')) $info.attr('tabindex', '-1');
-                        $info[0].focus();
-                        try { $info[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-                    }
-                } catch (e) {}
-            }
+                if ($target.length) {
+                    $target.show();
+                    $target.find('[required]').prop('required', true);
+                    // focus the location-extra container when location selected
+                    try {
+                        if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
+                        $target[0].focus();
+                        try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                    } catch (e) {}
+                }
             updatePriceDisplay();
             updateDateTimeLabels();
             // Ensure date field is visible (robust fallback in case reveal namespaced handler didn't run)
