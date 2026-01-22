@@ -6,6 +6,7 @@
  * Version: 1.0.0
  * Author: TS Appointment
  * Author URI: https://techno-solution.ca
+ * Tested up to: 6.9
  * Text Domain: ts-appointment
  * Domain Path: /languages
  * License: GPL-2.0-or-later
