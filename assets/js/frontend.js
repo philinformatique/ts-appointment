@@ -61,7 +61,7 @@
                 if ($target.length) {
                     $target.show();
                     $target.find('[required]').prop('required', true);
-                    $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 $appointmentDate.closest('.form-row').show();
                 //$appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -212,7 +212,7 @@
                 $appointmentDate.closest('.form-group').show();
                 $appointmentDate.closest('.form-row').show();
                 $appointmentDate.prop('disabled', false);
-                $locationExtras[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                $locationExtras[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 //$appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             } catch (e) {}
             // Toggle client-info visibility for this location as well
