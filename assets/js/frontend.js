@@ -61,29 +61,13 @@
                 if ($target.length) {
                     $target.show();
                     $target.find('[required]').prop('required', true);
-                    // Focus the first focusable element inside this location-extra for better UX
-                    try {
-                        const $first = $target.find('input, textarea, select, button, a[href], .info-box').filter(':visible').first();
-                        if ($first.length) {
-                            // Focus without scrolling (if supported), then scroll the container to its top
-                            try {
-                                if ($first[0].focus) {
-                                    try { $first[0].focus({ preventScroll: true }); } catch (err) { $first.focus(); }
-                                } else {
-                                    $first.focus();
-                                }
-                            } catch (e) {}
-                            try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-                        } else {
-                            if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
-                            try { $target[0].focus({ preventScroll: true }); } catch (err) { try { $target[0].focus(); } catch(e){} }
-                            try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-                        }
-                    } catch (e) {}
                 }
                 $appointmentDate.closest('.form-row').show();
+                //$appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 toggleClientInfoVisibility(key);
             });
+
+            // client-info visibility and date/time label helpers are declared below
 
             // Reveal times after date is picked (fetch will populate)
             $appointmentDate.on('change.reveal', function(){
@@ -216,16 +200,10 @@
             const key = $(this).val();
             $locationExtras.hide().find('textarea, input, select').prop('required', false);
             const $target = $('#loc-extra-' + key);
-                if ($target.length) {
-                    $target.show();
-                    $target.find('[required]').prop('required', true);
-                    // focus the location-extra container when location selected
-                    try {
-                        if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
-                        $target[0].focus();
-                        try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-                    } catch (e) {}
-                }
+            if ($target.length) {
+                $target.show();
+                $target.find('[required]').prop('required', true);
+            }
             updatePriceDisplay();
             updateDateTimeLabels();
             // Ensure date field is visible (robust fallback in case reveal namespaced handler didn't run)
@@ -233,7 +211,7 @@
                 $appointmentDate.closest('.form-group').show();
                 $appointmentDate.closest('.form-row').show();
                 $appointmentDate.prop('disabled', false);
-                $appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                //$appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             } catch (e) {}
             // Toggle client-info visibility for this location as well
             toggleClientInfoVisibility(key);
