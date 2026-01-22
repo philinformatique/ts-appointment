@@ -65,11 +65,18 @@
                     try {
                         const $first = $target.find('input, textarea, select, button, a[href], .info-box').filter(':visible').first();
                         if ($first.length) {
-                            $first.focus();
-                            try { $first[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+                            // Focus without scrolling (if supported), then scroll the container to its top
+                            try {
+                                if ($first[0].focus) {
+                                    try { $first[0].focus({ preventScroll: true }); } catch (err) { $first.focus(); }
+                                } else {
+                                    $first.focus();
+                                }
+                            } catch (e) {}
+                            try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
                         } else {
                             if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
-                            $target[0].focus();
+                            try { $target[0].focus({ preventScroll: true }); } catch (err) { try { $target[0].focus(); } catch(e){} }
                             try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
                         }
                     } catch (e) {}
