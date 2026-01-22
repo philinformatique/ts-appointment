@@ -61,11 +61,17 @@
                 if ($target.length) {
                     $target.show();
                     $target.find('[required]').prop('required', true);
-                    // Focus the specific location-extra container for accessibility
+                    // Focus the first focusable element inside this location-extra for better UX
                     try {
-                        if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
-                        $target[0].focus();
-                        try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+                        const $first = $target.find('input, textarea, select, button, a[href], .info-box').filter(':visible').first();
+                        if ($first.length) {
+                            $first.focus();
+                            try { $first[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+                        } else {
+                            if (!$target.attr('tabindex')) $target.attr('tabindex', '-1');
+                            $target[0].focus();
+                            try { $target[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+                        }
                     } catch (e) {}
                 }
                 $appointmentDate.closest('.form-row').show();
