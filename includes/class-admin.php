@@ -105,23 +105,64 @@ class TS_Appointment_Admin {
                             echo '<div class="notice notice-error"><p>' . __('Impossible d\'exécuter git pull : ce dossier ne semble pas être un dépôt Git.', 'ts-appointment') . '</p></div>';
                         } else {
                             $real = realpath(TS_APPOINTMENT_DIR);
-                            $cmd = 'git -C ' . escapeshellarg($real) . ' pull 2>&1';
+                            // Use fetch + reset --hard to align working tree with remote for debugging
                             $output = '';
                             $status = null;
+                            $real_esc = escapeshellarg($real);
+                            $fetch_cmd = 'git -C ' . $real_esc . ' fetch --all --prune 2>&1';
+                            $upstream_cmd = 'git -C ' . $real_esc . ' rev-parse --abbrev-ref --symbolic-full-name @{u} 2>&1';
+                            $branch_cmd = 'git -C ' . $real_esc . ' rev-parse --abbrev-ref HEAD 2>&1';
+
+                            $cmd_output = array();
+
+                            $run = function($c) use (&$cmd_output, &$status) {
+                                if (function_exists('shell_exec')) {
+                                    $res = shell_exec($c);
+                                    $cmd_output[] = trim((string)$res);
+                                } elseif (function_exists('exec')) {
+                                    $out_arr = array();
+                                    exec($c, $out_arr, $status);
+                                    $cmd_output[] = trim(implode("\n", $out_arr));
+                                } elseif (function_exists('passthru')) {
+                                    ob_start();
+                                    passthru($c, $status);
+                                    $cmd_output[] = trim(ob_get_clean());
+                                } else {
+                                    $cmd_output[] = 'shell disabled';
+                                }
+                            };
+
+                            // fetch
+                            $run($fetch_cmd);
+                            // try to get upstream ref
+                            $upstream = null;
                             if (function_exists('shell_exec')) {
-                                $output = shell_exec($cmd);
+                                $upstream = trim((string)shell_exec($upstream_cmd));
                             } elseif (function_exists('exec')) {
-                                $out_arr = array();
-                                exec($cmd, $out_arr, $status);
-                                $output = implode("\n", $out_arr);
-                            } elseif (function_exists('passthru')) {
-                                ob_start();
-                                passthru($cmd, $status);
-                                $output = ob_get_clean();
-                            } else {
-                                echo '<div class="notice notice-error"><p>' . __('L\'exécution de commandes shell est désactivée sur ce serveur.', 'ts-appointment') . '</p></div>';
-                                $output = '';
+                                $tmp = array();
+                                @exec($upstream_cmd, $tmp, $status);
+                                $upstream = trim(implode("\n", $tmp));
                             }
+                            // fallback to current branch
+                            if (empty($upstream) || strpos($upstream, 'fatal:') === 0) {
+                                if (function_exists('shell_exec')) {
+                                    $current = trim((string)shell_exec($branch_cmd));
+                                } elseif (function_exists('exec')) {
+                                    $tmp = array();
+                                    @exec($branch_cmd, $tmp, $status);
+                                    $current = trim(implode("\n", $tmp));
+                                } else {
+                                    $current = 'master';
+                                }
+                                $reset_target = 'origin/' . $current;
+                            } else {
+                                $reset_target = $upstream;
+                            }
+
+                            $reset_cmd = 'git -C ' . $real_esc . ' reset --hard ' . escapeshellarg($reset_target) . ' 2>&1';
+                            $run($reset_cmd);
+
+                            $output = implode("\n----\n", $cmd_output);
 
                             if ($output !== null) {
                                 $out = trim((string)$output);
