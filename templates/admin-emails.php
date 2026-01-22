@@ -15,8 +15,9 @@ if (!defined('ABSPATH')) {
 
         <h2><?php _e('Placeholders disponibles', 'ts-appointment'); ?></h2>
         <p class="description">
-            <strong>{client_name}</strong>, <strong>{service_name}</strong>, <strong>{appointment_date}</strong>, <strong>{appointment_time}</strong>, <strong>{location}</strong>, <strong>{business_name}</strong>
+            <strong>{client_name}</strong>, <strong>{client_phone}</strong>, <strong>{client_email}</strong>, <strong>{service_name}</strong>, <strong>{appointment_date}</strong>, <strong>{appointment_time}</strong>, <strong>{location}</strong>, <strong>{business_name}</strong>, <strong>{business_address}</strong>, <strong>{appointment_id}</strong>, <strong>{client_address}</strong>, <strong>{notes}</strong>, <strong>{reason}</strong>, <strong>{cancel_url}</strong>, <strong>{cancel_button}</strong>
         </p>
+        <p class="description"><strong><?php _e('Exemple conditionnel', 'ts-appointment'); ?> :</strong> {if location==atelier}Texte spécial pour l\'atelier{else}Texte par défaut{endif}</p>
 
         <?php foreach (array('client_new' => __('Email client - nouvelle demande', 'ts-appointment'), 'client_confirmation' => __('Email client - confirmation', 'ts-appointment'), 'admin_new' => __('Email admin - nouvelle demande', 'ts-appointment'), 'client_cancellation' => __('Email client - annulation', 'ts-appointment')) as $key => $label):
             $tpl = isset($templates[$key]) ? $templates[$key] : array('subject' => '', 'body' => '');
@@ -69,11 +70,20 @@ if (!defined('ABSPATH')) {
         // Sample placeholders
         var sample = {
             '{client_name}':'Jean Dupont',
+            '{client_phone}':'0123456789',
+            '{client_email}':'jean@example.com',
             '{service_name}':'Consultation',
             '{appointment_date}':'15/03/2026',
             '{appointment_time}':'14:00',
             '{location}':'Au cabinet',
-            '{business_name}':document.title || 'Mon entreprise'
+            '{business_name}':document.title || 'Mon entreprise',
+            '{business_address}':'<?php echo esc_js(get_option('ts_appointment_business_address')); ?>',
+            '{appointment_id}':'12345',
+            '{client_address}':'12 rue Principale, 75000 Paris',
+            '{notes}':'Remarque exemple',
+            '{reason}':'Raison fournie',
+            '{cancel_url}':'https://example.com/cancel?appt=12345',
+            '{cancel_button}':'[Bouton d\'annulation]'
         };
         Object.keys(sample).forEach(function(p){
             subject = subject.replace(new RegExp(p,'g'), sample[p]);
@@ -92,7 +102,8 @@ if (!defined('ABSPATH')) {
             '{appointment_date}':'15/03/2026',
             '{appointment_time}':'14:00',
             '{location}':'Au cabinet',
-            '{business_name}':document.title || 'Mon entreprise'
+            '{business_name}':document.title || 'Mon entreprise',
+            '{business_address}':'<?php echo esc_js(get_option('ts_appointment_business_address')); ?>'
         };
 
         function applySample(str){

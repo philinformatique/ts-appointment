@@ -13,6 +13,7 @@ class TS_Appointment_Email {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $business_email = get_option('ts_appointment_business_email');
         $business_name = get_option('ts_appointment_business_name');
+        $business_address = get_option('ts_appointment_business_address');
 
         $subject = self::render_email_template_subject('client_new', array(
             'client_name' => $appointment->client_name,
@@ -21,6 +22,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'client_address' => $appointment->client_address,
         ));
 
@@ -31,6 +33,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'appointment_id' => $appointment->id,
             'client_address' => $appointment->client_address,
         ));
@@ -53,6 +56,7 @@ class TS_Appointment_Email {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $business_email = get_option('ts_appointment_business_email');
         $business_name = get_option('ts_appointment_business_name');
+        $business_address = get_option('ts_appointment_business_address');
 
         $subject = self::render_email_template_subject('client_confirmation', array(
             'client_name' => $appointment->client_name,
@@ -61,6 +65,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'client_address' => $appointment->client_address,
         ));
 
@@ -71,6 +76,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'appointment_id' => $appointment->id,
             'client_address' => $appointment->client_address,
         ));
@@ -92,6 +98,7 @@ class TS_Appointment_Email {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $admin_email = get_option('admin_email');
         $business_name = get_option('ts_appointment_business_name');
+        $business_address = get_option('ts_appointment_business_address');
 
         $subject = self::render_email_template_subject('admin_new', array(
             'client_name' => $appointment->client_name,
@@ -100,6 +107,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'client_address' => $appointment->client_address,
         ));
 
@@ -110,6 +118,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'client_address' => $appointment->client_address,
         ));
         
@@ -129,6 +138,7 @@ class TS_Appointment_Email {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $business_email = get_option('ts_appointment_business_email');
         $business_name = get_option('ts_appointment_business_name');
+        $business_address = get_option('ts_appointment_business_address');
 
         $subject = self::render_email_template_subject('client_cancellation', array(
             'client_name' => $appointment->client_name,
@@ -137,6 +147,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'client_address' => $appointment->client_address,
         ));
 
@@ -147,6 +158,7 @@ class TS_Appointment_Email {
             'appointment_time' => $appointment->appointment_time,
             'location' => $appointment->appointment_type,
             'business_name' => $business_name,
+            'business_address' => $business_address,
             'reason' => $reason,
             'client_address' => $appointment->client_address,
         ));
@@ -349,11 +361,42 @@ class TS_Appointment_Email {
         return '';
     }
 
+    /**
+     * Parse simple conditionals inside templates.
+     * Supported syntax: {if location==atelier}...{else}...{endif}
+     * Comparison is case-insensitive and trims values.
+     */
+    private static function process_template_conditionals($body, $context = array()) {
+        $pattern = '/\{if\s+([a-zA-Z0-9_]+)\s*(?:==|=)\s*(?:\'([^\']*)\'|"([^\"]*)"|([^\}\s]+))\s*\}(.*?)(?:\{else\}(.*?))?\{endif\}/si';
+
+        $callback = function($m) use ($context) {
+            $key = $m[1];
+            $value = isset($context[$key]) ? (string)$context[$key] : '';
+            $cmp = '';
+            if (isset($m[2]) && $m[2] !== '') $cmp = $m[2];
+            elseif (isset($m[3]) && $m[3] !== '') $cmp = $m[3];
+            elseif (isset($m[4]) && $m[4] !== '') $cmp = $m[4];
+            $trueBranch = isset($m[5]) ? $m[5] : '';
+            $falseBranch = isset($m[6]) ? $m[6] : '';
+
+            if (strcasecmp(trim($value), trim($cmp)) === 0) {
+                return $trueBranch;
+            }
+            return $falseBranch;
+        };
+
+        // Apply repeatedly to handle multiple conditionals
+        return preg_replace_callback($pattern, $callback, $body);
+    }
+
     private static function render_email_template_body($key, $context = array()) {
         $templates_raw = get_option('ts_appointment_email_templates');
         $templates = json_decode($templates_raw, true);
         if (is_array($templates) && !empty($templates[$key]['body'])) {
             $body = $templates[$key]['body'];
+            // Process simple conditionals before placeholder replacement.
+            // Syntax supported: {if location==atelier}...{else}...{endif}
+            $body = self::process_template_conditionals($body, $context);
             foreach ($context as $k => $v) {
                 // basic context replacements (escaped)
                 $body = str_replace('{' . $k . '}', esc_html($v), $body);
