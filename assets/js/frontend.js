@@ -603,6 +603,7 @@
             const $container = $('#loc-extra-' + selected);
             if (!$container.length) return result;
             $container.find('[name^="extra["]').each(function() {
+                if ($(this).is(':disabled')) return;
                 const name = $(this).attr('name');
                 const key = name.replace(/^extra\[(.+)\]$/, '$1');
                 if ($(this).is(':checkbox')) {
@@ -618,6 +619,7 @@
             const result = {};
             const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_name','client_email','client_phone','notes'];
             $('#ts-appointment-form').find('input, select, textarea').each(function() {
+                if ($(this).is(':disabled')) return;
                 const name = $(this).attr('name');
                 if (!name || name.startsWith('extra[')) return;
                 if (exclude.indexOf(name) !== -1) return;
