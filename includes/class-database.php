@@ -99,6 +99,43 @@ class TS_Appointment_Database {
             dbDelta($statement);
         }
 
+        // Migration: Ensure client_data column exists and migrate old hardcoded columns
+        $client_data_col = $wpdb->get_var($wpdb->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'client_data'",
+            DB_NAME,
+            $appointments_table
+        ));
+        
+        if (!$client_data_col) {
+            // Add client_data column if missing
+            $wpdb->query("ALTER TABLE $appointments_table ADD COLUMN client_data longtext DEFAULT NULL");
+        }
+
+        // Migrate data from old hardcoded columns to client_data JSON
+        $legacy_columns = array('client_name', 'client_email', 'client_phone', 'client_address', 'notes');
+        foreach ($legacy_columns as $col) {
+            $col_exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+                DB_NAME,
+                $appointments_table,
+                $col
+            ));
+            
+            if ($col_exists) {
+                // Migrate data: for each row with this column value, merge into client_data JSON
+                $rows = $wpdb->get_results($wpdb->prepare("SELECT id, {$col}, client_data FROM $appointments_table WHERE {$col} IS NOT NULL AND {$col} != ''"));
+                foreach ($rows as $row) {
+                    $client_data = !empty($row->client_data) ? json_decode($row->client_data, true) : array();
+                    if (!is_array($client_data)) $client_data = array();
+                    $client_data[$col] = $row->{$col};
+                    $wpdb->update($appointments_table, array('client_data' => wp_json_encode($client_data)), array('id' => $row->id));
+                }
+                
+                // Drop the legacy column
+                $wpdb->query("ALTER TABLE $appointments_table DROP COLUMN {$col}");
+            }
+        }
+
         // Migration: s'assurer que appointment_type est bien en VARCHAR(100)
         $column = $wpdb->get_var($wpdb->prepare(
             "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'appointment_type'",
