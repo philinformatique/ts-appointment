@@ -228,19 +228,12 @@
                             <option value="none" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'none'); ?>><?php echo esc_html__('Ne pas envoyer (none)', 'ts-appointment'); ?></option>
                             <option value="externalOnly" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'externalOnly'); ?>><?php echo esc_html__('Envoyer aux invités externes seulement (externalOnly)', 'ts-appointment'); ?></option>
                             <option value="all" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'all'); ?>><?php echo esc_html__('Envoyer à tous (all)', 'ts-appointment'); ?></option>
+                            <option value="onConfirmation" <?php selected(get_option('ts_appointment_google_send_updates', 'none'), 'onConfirmation'); ?>><?php echo esc_html__('Notifier seulement à la confirmation', 'ts-appointment'); ?></option>
                         </select>
                         <p class="description"><?php echo esc_html__('Contrôle du paramètre sendUpdates passé à l\'API Google Calendar pour éviter l\'envoi d\'invitations automatiques.', 'ts-appointment'); ?></p>
                     </td>
                 </tr>
-                <tr>
-                    <th scope="row">
-                        <label for="google_notify_on_confirmation"><?php echo esc_html__('Notifier seulement à la confirmation', 'ts-appointment'); ?></label>
-                    </th>
-                    <td>
-                        <input type="checkbox" id="google_notify_on_confirmation" name="google_notify_on_confirmation" value="1" <?php checked(get_option('ts_appointment_google_notify_on_confirmation'), 1); ?>>
-                        <p class="description"><?php echo esc_html__('Si activé, les notifications (sendUpdates) vers les invités Google ne seront envoyées que lorsque le rendez-vous est confirmé.', 'ts-appointment'); ?></p>
-                    </td>
-                </tr>
+                <!-- 'Notifier seulement à la confirmation' moved into the select below as option 'onConfirmation' -->
                 <tr>
                     <th scope="row"><label for="google_email_reminders"><?php echo esc_html__('Rappels email dans Google', 'ts-appointment'); ?></label></th>
                     <td>
