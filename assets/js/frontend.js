@@ -154,7 +154,9 @@
                         $fg.show();
                         // restore original required if present
                         if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true);
+                            $fg.find('[name]').prop('required', true).prop('disabled', false);
+                        } else {
+                            $fg.find('[name]').prop('disabled', false);
                         }
                         return;
                     }
@@ -162,11 +164,13 @@
                     if (allowed.indexOf(key) !== -1) {
                         $fg.show();
                         if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true);
+                            $fg.find('[name]').prop('required', true).prop('disabled', false);
+                        } else {
+                            $fg.find('[name]').prop('disabled', false);
                         }
                     } else {
                         $fg.hide();
-                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false); } catch (e) {} });
+                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
                     }
                 });
             } catch (e) {}
@@ -476,7 +480,6 @@
                 appointment_type: $('input[name="appointment_type"]:checked').val(),
                 appointment_date: $appointmentDate.val(),
                 appointment_time: $appointmentTime.val(),
-                // client_address removed from form — not submitted
                 notes: $('#notes').val(),
                 extra: Object.assign({}, collectExtraFields(), collectBaseExtras())
             };
@@ -486,7 +489,7 @@
                 return;
             }
 
-            // client_address geocoding not required (field removed)
+            // geocoding not required (field removed)
 
             if (turnstileEnabled) {
                 formData.turnstile_token = turnstileToken;
@@ -608,7 +611,7 @@
 
         function collectBaseExtras() {
             const result = {};
-            const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_address','client_name','client_email','client_phone','notes'];
+            const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_name','client_email','client_phone','notes'];
             $('#ts-appointment-form').find('input, select, textarea').each(function() {
                 const name = $(this).attr('name');
                 if (!name || name.startsWith('extra[')) return;
