@@ -181,12 +181,12 @@ class TS_Appointment_Google_Calendar {
         
         $start_iso = $this->format_event_datetime($appointment->appointment_date, $appointment->appointment_time);
         $event = array(
-            'summary' => $status_prefix . $service->name . ' - ' . $appointment->client_name,
-            'description' => 'Client: ' . $appointment->client_name . "\n" .
-                           'Email: ' . $appointment->client_email . "\n" .
-                           'Téléphone: ' . $appointment->client_phone . "\n" .
+            'summary' => $status_prefix . $service->name . ' - ' . TS_Appointment_Email::get_client_field($appointment, 'client_name'),
+            'description' => 'Client: ' . TS_Appointment_Email::get_client_field($appointment, 'client_name') . "\n" .
+                           'Email: ' . TS_Appointment_Email::get_client_field($appointment, 'client_email') . "\n" .
+                           'Téléphone: ' . TS_Appointment_Email::get_client_field($appointment, 'client_phone') . "\n" .
                            'Type: ' . $this->get_appointment_type_label($appointment->appointment_type) . "\n" .
-                           'Notes: ' . $appointment->notes . "\n" .
+                           'Notes: ' . TS_Appointment_Email::get_client_field($appointment, 'notes') . "\n" .
                            $status_line,
             'start' => array(
                 'dateTime' => $start_iso,
@@ -199,7 +199,7 @@ class TS_Appointment_Google_Calendar {
             // Assure un créneau occupé même si le rendez-vous est en attente
             'transparency' => 'opaque',
             'attendees' => array(
-                array('email' => $appointment->client_email),
+                array('email' => TS_Appointment_Email::get_client_field($appointment, 'client_email')),
             ),
         );
 
@@ -217,8 +217,8 @@ class TS_Appointment_Google_Calendar {
             $event['reminders'] = array('useDefault' => false);
         }
 
-        if ($appointment->client_address) {
-            $event['location'] = $appointment->client_address;
+        if (TS_Appointment_Email::get_client_field($appointment, 'client_address')) {
+            $event['location'] = TS_Appointment_Email::get_client_field($appointment, 'client_address');
         }
 
         ts_appointment_log('TS Appointment: Creating Google event with summary: ' . $event['summary'], 'debug');
@@ -306,12 +306,12 @@ class TS_Appointment_Google_Calendar {
         
         $start_iso = $this->format_event_datetime($appointment->appointment_date, $appointment->appointment_time);
         $event = array(
-            'summary' => $status_prefix . $service->name . ' - ' . $appointment->client_name,
-            'description' => 'Client: ' . $appointment->client_name . "\n" .
-                           'Email: ' . $appointment->client_email . "\n" .
-                           'Téléphone: ' . $appointment->client_phone . "\n" .
+            'summary' => $status_prefix . $service->name . ' - ' . TS_Appointment_Email::get_client_field($appointment, 'client_name'),
+            'description' => 'Client: ' . TS_Appointment_Email::get_client_field($appointment, 'client_name') . "\n" .
+                           'Email: ' . TS_Appointment_Email::get_client_field($appointment, 'client_email') . "\n" .
+                           'Téléphone: ' . TS_Appointment_Email::get_client_field($appointment, 'client_phone') . "\n" .
                            'Type: ' . $this->get_appointment_type_label($appointment->appointment_type) . "\n" .
-                           'Notes: ' . $appointment->notes . "\n" .
+                           'Notes: ' . TS_Appointment_Email::get_client_field($appointment, 'notes') . "\n" .
                            $status_line,
             'start' => array(
                 'dateTime' => $start_iso,
