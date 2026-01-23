@@ -56,7 +56,7 @@
                             );
                             ?>
                             <tr>
-                                <td><?php echo esc_html(TS_Appointment_Email::get_client_field($appointment, 'client_name')); ?></td>
+                                <td><?php echo esc_html(TS_Appointment_Email::get_client_value($appointment, 'client_name')); ?></td>
                                 <td><?php echo esc_html($service->name); ?></td>
                                 <td><?php echo esc_html(date_i18n('j/m/Y H:i', strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))); ?></td>
                                 <td><?php echo esc_html(isset($type_labels[$appointment->appointment_type]) ? $type_labels[$appointment->appointment_type] : $appointment->appointment_type); ?></td>

@@ -9,6 +9,24 @@ if (!defined('ABSPATH')) {
 
 class TS_Appointment_Email {
     
+    /**
+     * Get a client field value from appointment.
+     * First tries direct column (for backward compatibility), then falls back to client_data JSON.
+     */
+    public static function get_client_value($appointment, $key) {
+        if (property_exists($appointment, $key) && !empty($appointment->{$key})) {
+            return $appointment->{$key};
+        }
+        // Try to extract from client_data JSON
+        if (!empty($appointment->client_data)) {
+            $data = json_decode($appointment->client_data, true);
+            if (is_array($data) && isset($data[$key])) {
+                return $data[$key];
+            }
+        }
+        return '';
+    }
+    
     public static function send_booking_notification($appointment) {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
         $business_email = get_option('ts_appointment_business_email');
@@ -47,11 +65,12 @@ class TS_Appointment_Email {
 
         // Create a log entry (pending)
         $log_id = 0;
+        $client_email = self::get_client_value($appointment, 'client_email');
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
                 'type' => 'client_new',
-                'recipient' => $appointment->client_email ?? null,
+                'recipient' => $client_email ?: null,
                 'subject' => $subject,
                 'body' => $message,
                 'status' => 'pending',
@@ -61,14 +80,14 @@ class TS_Appointment_Email {
         }
 
         // Use Mailgun if enabled
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($client_email, $subject, $message, $headers, $attachments)) {
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
 
-        ts_appointment_log('Using wp_mail for booking notification to ' . $appointment->client_email);
-        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
+        ts_appointment_log('Using wp_mail for booking notification to ' . $client_email);
+        $sent = wp_mail($client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         if ($sent) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
@@ -627,6 +646,7 @@ class TS_Appointment_Email {
     /**
      * Build a template context array from an appointment object.
      * Includes all fields declared in `ts_appointment_form_schema`.
+     * Reads from client_data JSON or falls back to appointment columns.
      */
     public static function build_email_context($appointment, $overrides = array()) {
         $ctx = array();
@@ -639,19 +659,43 @@ class TS_Appointment_Email {
         $ctx['business_address'] = get_option('ts_appointment_business_address');
         $ctx['appointment_id'] = isset($appointment->id) ? $appointment->id : '';
 
-        // Inject form schema fields
+        // Extract client_data from JSON
+        $client_data = array();
+        if (!empty($appointment->client_data)) {
+            $decoded = json_decode($appointment->client_data, true);
+            if (is_array($decoded)) {
+                $client_data = $decoded;
+            }
+        }
+
+        // Inject form schema fields from client_data or direct columns
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
                 $fk = isset($f['key']) ? $f['key'] : '';
                 if (!$fk) continue;
-                $ctx[$fk] = isset($appointment->{$fk}) ? $appointment->{$fk} : '';
+                // Prefer client_data, then fallback to direct column
+                if (isset($client_data[$fk])) {
+                    $ctx[$fk] = $client_data[$fk];
+                } elseif (property_exists($appointment, $fk)) {
+                    $ctx[$fk] = $appointment->{$fk};
+                } else {
+                    $ctx[$fk] = '';
+                }
             }
         }
 
-        // Also expose client_address and notes if present
-        if (isset($appointment->client_address)) $ctx['client_address'] = $appointment->client_address;
-        if (isset($appointment->notes)) $ctx['notes'] = $appointment->notes;
+        // Also expose client_address and notes if present (for backward compatibility)
+        if (isset($client_data['client_address'])) {
+            $ctx['client_address'] = $client_data['client_address'];
+        } elseif (property_exists($appointment, 'client_address')) {
+            $ctx['client_address'] = $appointment->client_address;
+        }
+        if (isset($client_data['notes'])) {
+            $ctx['notes'] = $client_data['notes'];
+        } elseif (property_exists($appointment, 'notes')) {
+            $ctx['notes'] = $appointment->notes;
+        }
 
         // Merge overrides
         foreach ($overrides as $k => $v) {
