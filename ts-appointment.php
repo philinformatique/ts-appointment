@@ -65,25 +65,64 @@ class TS_Appointment {
         $id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;
         $nonce = isset($_REQUEST['_wpnonce']) ? sanitize_text_field($_REQUEST['_wpnonce']) : '';
         $ct = isset($_REQUEST['ct']) ? sanitize_text_field($_REQUEST['ct']) : '';
-
-        $verified = false;
+        // If it's a GET request and verification passes, show a confirmation form
+        $verified_get = false;
         if ($id && $nonce && wp_verify_nonce($nonce, 'ts_appointment_cancel_' . $id)) {
-            $verified = true;
+            $verified_get = true;
         } elseif ($id && $ct && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_cancel_token($id, $ct)) {
-            // Accept persistent cancel token as fallback when nonce expired
-            $verified = true;
+            $verified_get = true;
         }
 
-        if (!$id || !$verified) {
+        if (!$id || !$verified_get) {
             wp_die(__('Lien d\'annulation invalide ou expiré.', 'ts-appointment'));
         }
-        $ok = TS_Appointment_Manager::cancel_appointment($id, __('Annulation par le client via email', 'ts-appointment'));
-        if ($ok) {
-            // Redirect to home with query param to show message
-            wp_safe_redirect(site_url('/?ts_appointment_cancelled=1'));
-            exit;
+
+        // If POST with confirm flag, perform cancellation (verify again for POST)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm']) && intval($_POST['confirm']) === 1) {
+            $post_id = isset($_POST['appointment_id']) ? intval($_POST['appointment_id']) : 0;
+            $post_nonce = isset($_POST['_wpnonce']) ? sanitize_text_field($_POST['_wpnonce']) : '';
+            $post_ct = isset($_POST['ct']) ? sanitize_text_field($_POST['ct']) : '';
+
+            $verified_post = false;
+            if ($post_id && $post_nonce && wp_verify_nonce($post_nonce, 'ts_appointment_cancel_' . $post_id)) {
+                $verified_post = true;
+            } elseif ($post_id && $post_ct && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_cancel_token($post_id, $post_ct)) {
+                $verified_post = true;
+            }
+
+            if (!$post_id || !$verified_post) {
+                wp_die(__('Autorisation d\'annulation invalide.', 'ts-appointment'));
+            }
+
+            $ok = TS_Appointment_Manager::cancel_appointment($post_id, __('Annulation par le client via email', 'ts-appointment'));
+            if ($ok) {
+                wp_safe_redirect(site_url('/?ts_appointment_cancelled=1'));
+                exit;
+            }
+            wp_die(__('Impossible d\'annuler le rendez-vous.', 'ts-appointment'));
         }
-        wp_die(__('Impossible d\'annuler le rendez-vous.', 'ts-appointment'));
+
+        // Otherwise show a simple confirmation page
+        $appointment = TS_Appointment_Database::get_appointment($id);
+        $appt_date = $appointment ? esc_html(date_i18n(get_option('ts_appointment_date_format', 'j/m/Y') . ' ' . get_option('ts_appointment_time_format', 'H:i'), strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) : '';
+        $cancel_action = esc_url(admin_url('admin-post.php?action=ts_appointment_cancel_public'));
+        // Render minimal confirmation HTML
+        echo '<!doctype html><html><head><meta charset="utf-8"><title>' . esc_html__('Confirmation d\'annulation', 'ts-appointment') . '</title></head><body style="font-family:Arial,Helvetica,sans-serif;padding:24px;">';
+        echo '<h1>' . esc_html__('Confirmer l\'annulation', 'ts-appointment') . '</h1>';
+        if ($appointment) {
+            echo '<p>' . sprintf(esc_html__('Vous êtes sur le point d\'annuler le rendez-vous #%d pour le %s.', 'ts-appointment'), intval($appointment->id), $appt_date) . '</p>';
+        } else {
+            echo '<p>' . esc_html__('Vous êtes sur le point d\'annuler ce rendez-vous.', 'ts-appointment') . '</p>';
+        }
+        echo '<form method="post" action="' . $cancel_action . '">';
+        echo '<input type="hidden" name="appointment_id" value="' . esc_attr($id) . '" />';
+        if (!empty($nonce)) echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '" />';
+        if (!empty($ct)) echo '<input type="hidden" name="ct" value="' . esc_attr($ct) . '" />';
+        echo '<input type="hidden" name="confirm" value="1" />';
+        echo '<p><button type="submit" style="background:#c0392b;color:#fff;padding:10px 16px;border:none;border-radius:4px;">' . esc_html__('Confirmer l\'annulation', 'ts-appointment') . '</button> ';
+        echo '<a href="' . esc_url(site_url()) . '" style="margin-left:12px;">' . esc_html__('Annuler (retour)', 'ts-appointment') . '</a></p>';
+        echo '</form></body></html>';
+        exit;
     }
 
     private function load_dependencies() {
