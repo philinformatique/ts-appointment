@@ -20,6 +20,65 @@ class TS_Appointment_Admin {
     }
 
     public static function display_appointments() {
+        // Handle appointment edits from admin table
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce'])) {
+            if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_appointments')) {
+                if (!empty($_POST['action_type']) && $_POST['action_type'] === 'edit' && !empty($_POST['appointment_id'])) {
+                    $appt_id = intval($_POST['appointment_id']);
+                    $appt = TS_Appointment_Database::get_appointment($appt_id);
+                    if ($appt) {
+                        $update = array();
+
+                        // Allow editing basic appointment fields
+                        if (isset($_POST['appointment_date'])) {
+                            $update['appointment_date'] = sanitize_text_field($_POST['appointment_date']);
+                        }
+                        if (isset($_POST['appointment_time'])) {
+                            $update['appointment_time'] = sanitize_text_field($_POST['appointment_time']);
+                        }
+                        if (isset($_POST['appointment_type'])) {
+                            $update['appointment_type'] = sanitize_text_field($_POST['appointment_type']);
+                        }
+                        if (isset($_POST['status'])) {
+                            $update['status'] = sanitize_text_field($_POST['status']);
+                        }
+
+                        // Merge client fields into client_data JSON
+                        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+                        $client_data = array();
+                        if (!empty($appt->client_data)) {
+                            $decoded = json_decode($appt->client_data, true);
+                            if (is_array($decoded)) $client_data = $decoded;
+                        }
+
+                        if (is_array($form_schema)) {
+                            foreach ($form_schema as $f) {
+                                if (empty($f['key'])) continue;
+                                $k = $f['key'];
+                                if (isset($_POST[$k])) {
+                                    // Allow HTML for textarea-like fields
+                                    if (in_array($f['type'] ?? 'text', array('textarea'), true)) {
+                                        $client_data[$k] = wp_kses_post(wp_unslash($_POST[$k]));
+                                    } else {
+                                        $client_data[$k] = sanitize_text_field($_POST[$k]);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!empty($client_data)) {
+                            $update['client_data'] = wp_json_encode($client_data);
+                        }
+
+                        if (!empty($update)) {
+                            TS_Appointment_Database::update_appointment($appt_id, $update);
+                            echo '<div class="notice notice-success"><p>' . __('Rendez-vous mis à jour.', 'ts-appointment') . '</p></div>';
+                        }
+                    }
+                }
+            }
+        }
+
         $appointments = TS_Appointment_Database::get_appointments();
 
         include TS_APPOINTMENT_DIR . 'templates/admin-appointments.php';
