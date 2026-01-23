@@ -143,6 +143,73 @@
         </div>
 
         <div class="settings-section">
+            <h2><?php echo esc_html__('.ics (iCalendar)', 'ts-appointment'); ?></h2>
+
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="ics_enabled"><?php echo esc_html__('Générer un fichier .ics', 'ts-appointment'); ?></label>
+                    </th>
+                    <td>
+                        <input type="checkbox" id="ics_enabled" name="ics_enabled" value="1" <?php checked(get_option('ts_appointment_ics_enabled'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Joindre automatiquement un fichier iCalendar aux emails clients.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="ics_attach"><?php echo esc_html__('Joindre le .ics aux emails', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="checkbox" id="ics_attach" name="ics_attach" value="1" <?php checked(get_option('ts_appointment_ics_attach'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Si désactivé, le contenu iCalendar ne sera pas joint, mais vous pouvez l’utiliser dans d’autres flux.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="ics_duration"><?php echo esc_html__('Durée par défaut (minutes)', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="number" id="ics_duration" name="ics_duration" value="<?php echo esc_attr(get_option('ts_appointment_ics_duration', 60)); ?>" class="small-text">
+                        <p class="description"><?php echo esc_html__('Durée de l’événement si non spécifiée (en minutes).', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="ics_reminder_minutes"><?php echo esc_html__('Rappel (minutes avant)', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="number" id="ics_reminder_minutes" name="ics_reminder_minutes" value="<?php echo esc_attr(get_option('ts_appointment_ics_reminder_minutes', 30)); ?>" class="small-text">
+                        <p class="description"><?php echo esc_html__('Ajouter une alarme dans le .ics (0 pour aucun rappel).', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="ics_method"><?php echo esc_html__('Méthode iCalendar', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <select id="ics_method" name="ics_method">
+                            <option value="PUBLISH" <?php selected(get_option('ts_appointment_ics_method', 'PUBLISH'), 'PUBLISH'); ?>><?php echo esc_html__('PUBLISH (calendrier statique)', 'ts-appointment'); ?></option>
+                            <option value="REQUEST" <?php selected(get_option('ts_appointment_ics_method', 'PUBLISH'), 'REQUEST'); ?>><?php echo esc_html__('REQUEST (invitation)', 'ts-appointment'); ?></option>
+                        </select>
+                        <p class="description"><?php echo esc_html__('Choisir REQUEST pour que certains clients traitent le message comme une invitation.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label><?php echo esc_html__('Envoyer le .ics pour', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <?php
+                        $ics_for_raw = get_option('ts_appointment_ics_send_for', '[]');
+                        $ics_for = json_decode($ics_for_raw, true) ?: array();
+                        $email_types = array(
+                            'client_new' => __('Email client - nouvelle demande', 'ts-appointment'),
+                            'client_confirmation' => __('Email client - confirmation', 'ts-appointment'),
+                            'admin_new' => __('Email admin - nouvelle demande', 'ts-appointment'),
+                            'client_cancellation' => __('Email client - annulation', 'ts-appointment'),
+                        );
+                        foreach ($email_types as $k => $label) {
+                            $checked = in_array($k, $ics_for, true) ? 'checked' : '';
+                            echo '<label style="display:block;margin-bottom:6px;"><input type="checkbox" name="ics_send_for[]" value="' . esc_attr($k) . '" ' . $checked . '> ' . esc_html($label) . '</label>';
+                        }
+                        ?>
+                        <p class="description"><?php echo esc_html__('Sélectionnez pour quels types d’emails joindre le fichier .ics.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="settings-section">
             <h2><?php echo esc_html__('Google Calendar', 'ts-appointment'); ?></h2>
 
             <table class="form-table">

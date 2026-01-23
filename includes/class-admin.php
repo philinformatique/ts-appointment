@@ -73,7 +73,7 @@ class TS_Appointment_Admin {
                     $headers = array('Content-Type: text/html; charset=UTF-8');
                     $sent = false;
                     if (class_exists('TS_Appointment_Email')) {
-                        $sent = TS_Appointment_Email::send_via_mailgun($test_to, $subject, $body, $headers);
+                        $sent = TS_Appointment_Email::send_via_mailgun($test_to, $subject, $body, $headers, array());
                     }
                     if ($sent) {
                         echo '<div class="notice notice-success"><p>' . __('Email de test envoyé avec succès via Mailgun.', 'ts-appointment') . '</p></div>';
@@ -677,6 +677,12 @@ class TS_Appointment_Admin {
             'google_client_secret',
             'google_send_updates',
             'google_email_reminders',
+            // iCalendar (.ics) options
+            'ics_enabled',
+            'ics_attach',
+            'ics_duration',
+            'ics_reminder_minutes',
+            'ics_method',
             'turnstile_enabled',
             'turnstile_site_key',
             'turnstile_secret_key',
@@ -702,8 +708,17 @@ class TS_Appointment_Admin {
             }
         }
 
+        // Save selected email types that should receive .ics (array from checkboxes)
+        if (isset($_POST['ics_send_for']) && is_array($_POST['ics_send_for'])) {
+            $vals = array_map('sanitize_text_field', $_POST['ics_send_for']);
+            update_option('ts_appointment_ics_send_for', wp_json_encode(array_values($vals)));
+        } else {
+            // Ensure option exists (store empty array when none selected)
+            update_option('ts_appointment_ics_send_for', wp_json_encode(array()));
+        }
+
         // Gestion explicite des cases à cocher pour éviter de conserver un état activé quand décochées
-            $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled', 'mailgun_enabled', 'mailgun_global_enabled');
+            $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled', 'mailgun_enabled', 'mailgun_global_enabled', 'ics_enabled', 'ics_attach');
         foreach ($checkboxes as $checkbox) {
             if (!isset($_POST[$checkbox])) {
                 update_option('ts_appointment_' . $checkbox, 0);

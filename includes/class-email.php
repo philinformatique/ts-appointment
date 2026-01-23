@@ -43,12 +43,27 @@ class TS_Appointment_Email {
             'From: ' . $business_name . ' <' . $business_email . '>',
         );
 
+        // Build attachments array if .ics generation enabled and configured
+        $attachments = array();
+        $ics_for_raw = get_option('ts_appointment_ics_send_for', '[]');
+        $ics_for = json_decode($ics_for_raw, true) ?: array();
+        if (get_option('ts_appointment_ics_enabled') && get_option('ts_appointment_ics_attach') && in_array('client_new', $ics_for, true)) {
+            $ics_path = self::generate_ics_file($appointment);
+            if ($ics_path && file_exists($ics_path)) {
+                $attachments[] = $ics_path;
+            }
+        }
+
         // Use Mailgun if enabled, otherwise wp_mail. Fallback to wp_mail on failure.
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
+            // remove temp ics file
+            if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             return true;
         }
         ts_appointment_log('Using wp_mail for booking notification to ' . $appointment->client_email);
-        wp_mail($appointment->client_email, $subject, $message, $headers);
+        wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
+        // cleanup temp file
+        if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         return true;
     }
 
@@ -86,11 +101,23 @@ class TS_Appointment_Email {
             'From: ' . $business_name . ' <' . $business_email . '>',
         );
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers)) {
+        $attachments = array();
+        $ics_for_raw = get_option('ts_appointment_ics_send_for', '[]');
+        $ics_for = json_decode($ics_for_raw, true) ?: array();
+        if (get_option('ts_appointment_ics_enabled') && get_option('ts_appointment_ics_attach') && in_array('client_confirmation', $ics_for, true)) {
+            $ics_path = self::generate_ics_file($appointment);
+            if ($ics_path && file_exists($ics_path)) {
+                $attachments[] = $ics_path;
+            }
+        }
+
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
+            if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             return true;
         }
         ts_appointment_log('Using wp_mail for confirmation to ' . $appointment->client_email);
-        wp_mail($appointment->client_email, $subject, $message, $headers);
+        wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
+        if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         return true;
     }
 
@@ -126,7 +153,7 @@ class TS_Appointment_Email {
             'Content-Type: text/html; charset=UTF-8',
         );
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($admin_email, $subject, $message, $headers)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($admin_email, $subject, $message, $headers, array())) {
             return true;
         }
         ts_appointment_log('Using wp_mail for admin notification to ' . $admin_email);
@@ -168,7 +195,7 @@ class TS_Appointment_Email {
             'From: ' . $business_name . ' <' . $business_email . '>',
         );
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, array())) {
             return true;
         }
         ts_appointment_log('Using wp_mail for cancellation to ' . $appointment->client_email);
@@ -430,10 +457,96 @@ class TS_Appointment_Email {
     }
 
     /**
+     * Generate a temporary .ics file for an appointment and return its path.
+     */
+    private static function generate_ics_file($appointment) {
+        if (empty($appointment)) return '';
+
+        $duration_min = intval(get_option('ts_appointment_ics_duration', 60));
+        $reminder_min = intval(get_option('ts_appointment_ics_reminder_minutes', 30));
+        $method = get_option('ts_appointment_ics_method', 'PUBLISH');
+
+        $business_name = get_option('ts_appointment_business_name');
+        $business_email = get_option('ts_appointment_business_email');
+        $business_address = get_option('ts_appointment_business_address');
+
+        $start_dt = null;
+        try {
+            $tz = get_option('ts_appointment_timezone') ?: (get_option('timezone_string') ?: 'UTC');
+            $dt = new DateTime($appointment->appointment_date . ' ' . $appointment->appointment_time, new DateTimeZone($tz));
+            $start_dt = clone $dt;
+            $end_dt = clone $dt;
+            $end_dt->modify('+' . $duration_min . ' minutes');
+        } catch (Exception $e) {
+            $start_dt = new DateTime('now', new DateTimeZone('UTC'));
+            $end_dt = clone $start_dt;
+            $end_dt->modify('+' . $duration_min . ' minutes');
+            $tz = 'UTC';
+        }
+
+        // Use UTC timestamps for compatibility
+        $dtstamp = (new DateTime('now', new DateTimeZone('UTC')))->format('Ymd\THis\Z');
+        $dtstart = clone $start_dt;
+        $dtstart->setTimezone(new DateTimeZone('UTC'));
+        $dtend = clone $end_dt;
+        $dtend->setTimezone(new DateTimeZone('UTC'));
+
+        $uid = 'ts-appointment-' . (isset($appointment->id) ? intval($appointment->id) : uniqid()) . '@' . parse_url(home_url(), PHP_URL_HOST);
+
+        $summary = isset($appointment->service_name) ? $appointment->service_name : (isset($appointment->service) ? $appointment->service->name : 'Rendez-vous');
+        $description = isset($appointment->client_notes) ? $appointment->client_notes : (isset($appointment->notes) ? $appointment->notes : '');
+        $location = $business_address ?: (isset($appointment->location) ? $appointment->location : '');
+        $organizer = $business_name ? ($business_name . ' <' . $business_email . '>') : $business_email;
+
+        $ical = "BEGIN:VCALENDAR\r\n";
+        $ical .= "VERSION:2.0\r\n";
+        $ical .= "PRODID:-//ts-appointment//EN\r\n";
+        $ical .= "METHOD:" . esc_html($method) . "\r\n";
+        $ical .= "BEGIN:VEVENT\r\n";
+        $ical .= "UID:" . $uid . "\r\n";
+        $ical .= "DTSTAMP:" . $dtstamp . "\r\n";
+        $ical .= "DTSTART:" . $dtstart->format('Ymd\THis\Z') . "\r\n";
+        $ical .= "DTEND:" . $dtend->format('Ymd\THis\Z') . "\r\n";
+        $ical .= "SUMMARY:" . self::escape_ical_text($summary) . "\r\n";
+        if (!empty($description)) $ical .= "DESCRIPTION:" . self::escape_ical_text($description) . "\r\n";
+        if (!empty($location)) $ical .= "LOCATION:" . self::escape_ical_text($location) . "\r\n";
+        if (!empty($organizer)) $ical .= "ORGANIZER:MAILTO:" . esc_html($business_email) . "\r\n";
+        if (!empty($appointment->client_email)) {
+            $ical .= "ATTENDEE;CN=" . self::escape_ical_text($appointment->client_name ?? $appointment->client_email) . ":MAILTO:" . esc_html($appointment->client_email) . "\r\n";
+        }
+        if ($reminder_min > 0) {
+            $ical .= "BEGIN:VALARM\r\n";
+            $ical .= "TRIGGER:-PT" . intval($reminder_min) . "M\r\n";
+            $ical .= "ACTION:DISPLAY\r\n";
+            $ical .= "DESCRIPTION:Reminder\r\n";
+            $ical .= "END:VALARM\r\n";
+        }
+        $ical .= "END:VEVENT\r\n";
+        $ical .= "END:VCALENDAR\r\n";
+
+        $upload = wp_upload_dir();
+        $dir = isset($upload['path']) ? $upload['path'] : sys_get_temp_dir();
+        $filename = 'ts-appointment-' . (isset($appointment->id) ? intval($appointment->id) : uniqid()) . '.ics';
+        $path = trailingslashit($dir) . $filename;
+
+        try {
+            file_put_contents($path, $ical);
+            return $path;
+        } catch (Exception $e) {
+            return '';
+        }
+    }
+
+    private static function escape_ical_text($text) {
+        $replacements = array("\\" => "\\\\", "\n" => "\\n", ";" => "\\;", "," => "\\,");
+        return strtr($text, $replacements);
+    }
+
+    /**
      * Send message using Mailgun API when configured.
      * Returns true on success, false on failure.
      */
-    public static function send_via_mailgun($to, $subject, $html, $headers = array()) {
+    public static function send_via_mailgun($to, $subject, $html, $headers = array(), $attachments = array()) {
         if (empty(get_option('ts_appointment_mailgun_enabled'))) {
             return false;
         }
@@ -455,6 +568,54 @@ class TS_Appointment_Email {
             }
         }
 
+        $url = 'https://api.mailgun.net/v3/' . $domain . '/messages';
+
+        // If there are attachments and curl is available, use curl to send multipart/form-data
+        if (!empty($attachments) && function_exists('curl_version') && function_exists('curl_init')) {
+            $post = array(
+                'from' => $from,
+                'to' => is_array($to) ? implode(',', $to) : $to,
+                'subject' => $subject,
+                'html' => $html,
+            );
+
+            // prepare curl files
+            foreach ($attachments as $i => $file) {
+                if (is_string($file) && file_exists($file)) {
+                    if (function_exists('curl_file_create')) {
+                        $post['attachment'][] = curl_file_create($file);
+                    } else {
+                        // Older PHP (<5.5) fallback (may be disabled on some hosts)
+                        $post['attachment'][] = '@' . $file;
+                    }
+                }
+            }
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            curl_setopt($ch, CURLOPT_USERPWD, 'api:' . $api_key);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if ($response === false) {
+                ts_appointment_log('Mailgun curl error: ' . curl_error($ch));
+                curl_close($ch);
+                return false;
+            }
+            curl_close($ch);
+
+            if ($http_code >= 200 && $http_code < 300) {
+                return true;
+            }
+            ts_appointment_log('Mailgun returned HTTP ' . $http_code . ' -- ' . $response);
+            return false;
+        }
+
+        // Fallback to wp_remote_post without files
         $body = array(
             'from' => $from,
             'to' => is_array($to) ? implode(',', $to) : $to,
@@ -462,7 +623,6 @@ class TS_Appointment_Email {
             'html' => $html,
         );
 
-        $url = 'https://api.mailgun.net/v3/' . $domain . '/messages';
         $args = array(
             'body' => $body,
             'headers' => array(
@@ -502,7 +662,8 @@ class TS_Appointment_Email {
         $message = isset($atts['message']) ? $atts['message'] : '';
         $headers = isset($atts['headers']) ? $atts['headers'] : array();
 
-        $sent = self::send_via_mailgun($to, $subject, $message, (array)$headers);
+        $attachments = isset($atts['attachments']) ? $atts['attachments'] : array();
+        $sent = self::send_via_mailgun($to, $subject, $message, (array)$headers, (array)$attachments);
         if ($sent) {
             return true; // short-circuit wp_mail, indicates success
         }
