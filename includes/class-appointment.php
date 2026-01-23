@@ -28,7 +28,6 @@ class TS_Appointment_Manager {
             'appointment_type' => sanitize_text_field($data['appointment_type']),
             'appointment_date' => sanitize_text_field($data['appointment_date']),
             'appointment_time' => sanitize_text_field($data['appointment_time']),
-            'client_address' => isset($data['client_address']) ? sanitize_textarea_field($data['client_address']) : '',
             'notes' => isset($data['notes']) ? sanitize_textarea_field($data['notes']) : '',
             'status' => 'pending',
         );
