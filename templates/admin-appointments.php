@@ -63,13 +63,12 @@
                 <tr>
                     <th><?php echo esc_html__('ID', 'ts-appointment'); ?></th>
                     <?php
-                    $schema_cols = is_array($form_schema) ? $form_schema : array();
-                    if (!empty($schema_cols)) {
-                        foreach ($schema_cols as $col) {
-                            $label = isset($col['label']) ? $col['label'] : ($col['key'] ?? '');
-                            echo '<th>' . esc_html($label) . '</th>';
+                    // Render dynamic headers from form schema
+                    if (!empty($form_schema) && is_array($form_schema)) {
+                        foreach ($form_schema as $field) {
+                            echo '<th>' . esc_html($field['label'] ?? $field['key'] ?? '') . '</th>';
                         }
-                    } 
+                    }
                     ?>
                     <th><?php echo esc_html__('Date/Heure', 'ts-appointment'); ?></th>
                     <th><?php echo esc_html__('Type', 'ts-appointment'); ?></th>
@@ -99,15 +98,14 @@
                                 $decoded = json_decode($appointment->client_data, true);
                                 if (is_array($decoded)) $client_data = $decoded;
                             }
-                            // Render columns from schema (in same order)
-                            if (!empty($schema_cols)) {
-                                foreach ($schema_cols as $col) {
-                                    $k = $col['key'] ?? '';
-                                    $val = isset($client_data[$k]) ? $client_data[$k] : '';
-                                    if (is_array($val)) $val = implode(', ', $val);
-                                    echo '<td>' . esc_html($val) . 'test</td>';
+                            // Render values from schema fields
+                            if (!empty($form_schema) && is_array($form_schema)) {
+                                foreach ($form_schema as $field) {
+                                    $key = $field['key'] ?? '';
+                                    $val = $client_data[$key] ?? '';
+                                    echo '<td>' . esc_html($val) . '</td>';
                                 }
-                            } 
+                            }
                         ?>
                         <td><?php echo esc_html(date_i18n('j/m/Y H:i', strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))); ?></td>
                         <td><?php echo esc_html(isset($type_labels[$appointment->appointment_type]) ? $type_labels[$appointment->appointment_type] : $appointment->appointment_type); ?></td>

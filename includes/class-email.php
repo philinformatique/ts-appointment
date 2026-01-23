@@ -8,18 +8,6 @@ if (!defined('ABSPATH')) {
 }
 
 class TS_Appointment_Email {
-    /**
-     * Safely read client-related fields from an appointment, preferring stored client_data JSON.
-     */
-    public static function get_client_field($appointment, $key) {
-        if (empty($appointment) || !$key) return '';
-        if (!empty($appointment->client_data)) {
-            $cd = json_decode($appointment->client_data, true);
-            if (is_array($cd) && isset($cd[$key]) && $cd[$key] !== '') return $cd[$key];
-        }
-        if (isset($appointment->{$key}) && $appointment->{$key} !== '') return $appointment->{$key};
-        return '';
-    }
     
     public static function send_booking_notification($appointment) {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
@@ -57,16 +45,13 @@ class TS_Appointment_Email {
             }
         }
 
-        // Determine recipient from client_data or legacy field
-        $to = self::get_client_field($appointment, 'client_email');
-
         // Create a log entry (pending)
         $log_id = 0;
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
                 'type' => 'client_new',
-                'recipient' => $to ?: null,
+                'recipient' => $appointment->client_email ?? null,
                 'subject' => $subject,
                 'body' => $message,
                 'status' => 'pending',
@@ -76,14 +61,14 @@ class TS_Appointment_Email {
         }
 
         // Use Mailgun if enabled
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($to, $subject, $message, $headers, $attachments)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
 
-        ts_appointment_log('Using wp_mail for booking notification to ' . $to);
-        $sent = wp_mail($to, $subject, $message, $headers, $attachments);
+        ts_appointment_log('Using wp_mail for booking notification to ' . $appointment->client_email);
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         if ($sent) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
@@ -118,14 +103,12 @@ class TS_Appointment_Email {
             }
         }
 
-        $to = self::get_client_field($appointment, 'client_email');
-
         $log_id = 0;
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
                 'type' => 'client_confirmation',
-                'recipient' => $to ?: null,
+                'recipient' => $appointment->client_email ?? null,
                 'subject' => $subject,
                 'body' => $message,
                 'status' => 'pending',
@@ -134,13 +117,13 @@ class TS_Appointment_Email {
             ));
         }
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($to, $subject, $message, $headers, $attachments)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
-        ts_appointment_log('Using wp_mail for confirmation to ' . $to);
-        $sent = wp_mail($to, $subject, $message, $headers, $attachments);
+        ts_appointment_log('Using wp_mail for confirmation to ' . $appointment->client_email);
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         if ($sent) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
@@ -207,14 +190,12 @@ class TS_Appointment_Email {
             'From: ' . $business_name . ' <' . $business_email . '>',
         );
 
-        $to = self::get_client_field($appointment, 'client_email');
-
         $log_id = 0;
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
                 'type' => 'client_cancellation',
-                'recipient' => $to ?: null,
+                'recipient' => $appointment->client_email ?? null,
                 'subject' => $subject,
                 'body' => $message,
                 'status' => 'pending',
@@ -223,12 +204,12 @@ class TS_Appointment_Email {
             ));
         }
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($to, $subject, $message, $headers, array())) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, array())) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
-        ts_appointment_log('Using wp_mail for cancellation to ' . $to);
-        $sent = wp_mail($to, $subject, $message, $headers);
+        ts_appointment_log('Using wp_mail for cancellation to ' . $appointment->client_email);
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers);
         if ($sent) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
@@ -263,9 +244,9 @@ class TS_Appointment_Email {
             $cancel_button_html = '<p style="text-align:center;margin:24px 0"><a href="' . esc_url($cancel_url) . '" style="background:' . esc_attr($color_primary) . ';color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block">' . esc_html__('Annuler le rendez-vous', 'ts-appointment') . '</a></p>';
         }
 
-        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0}a{color:' . $color_primary . '} .container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px} .card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)} .hero{background:' . $color_primary . ';color:#fff;padding:28px;text-align:center} .content{padding:24px} .meta{display:flex;flex-wrap:wrap;margin:16px 0} .meta .label{flex:0 0 140px;font-weight:700;color:' . $color_primary . '} .meta .value{flex:1} .footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Réservation reçue', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html(self::get_client_field($appointment, 'client_name'))) . '</p><p>' . esc_html__('Nous avons bien reçu votre demande de rendez-vous. Nous vous informerons dès que la demande sera confirmée.', 'ts-appointment') . '</p><div class="meta"><div class="label">' . esc_html__('Service', 'ts-appointment') . '</div><div class="value">' . esc_html($service->name) . '</div></div><div class="meta"><div class="label">' . esc_html__('Date', 'ts-appointment') . '</div><div class="value">' . $date_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Heure', 'ts-appointment') . '</div><div class="value">' . $time_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Lieu', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment_type) . '</div></div>';
-        if (self::get_client_field($appointment, 'client_address')) {
-            $html .= '<div class="meta"><div class="label">' . esc_html__('Adresse', 'ts-appointment') . '</div><div class="value">' . esc_html(self::get_client_field($appointment, 'client_address')) . '</div></div>';
+        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0}a{color:' . $color_primary . '} .container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px} .card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)} .hero{background:' . $color_primary . ';color:#fff;padding:28px;text-align:center} .content{padding:24px} .meta{display:flex;flex-wrap:wrap;margin:16px 0} .meta .label{flex:0 0 140px;font-weight:700;color:' . $color_primary . '} .meta .value{flex:1} .footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Réservation reçue', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html($appointment->client_name)) . '</p><p>' . esc_html__('Nous avons bien reçu votre demande de rendez-vous. Nous vous informerons dès que la demande sera confirmée.', 'ts-appointment') . '</p><div class="meta"><div class="label">' . esc_html__('Service', 'ts-appointment') . '</div><div class="value">' . esc_html($service->name) . '</div></div><div class="meta"><div class="label">' . esc_html__('Date', 'ts-appointment') . '</div><div class="value">' . $date_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Heure', 'ts-appointment') . '</div><div class="value">' . $time_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Lieu', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment_type) . '</div></div>';
+        if (!empty($appointment->client_address)) {
+            $html .= '<div class="meta"><div class="label">' . esc_html__('Adresse', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment->client_address) . '</div></div>';
         }
 
         $html .= $cancel_button_html;
@@ -300,9 +281,9 @@ class TS_Appointment_Email {
             $cancel_button_html = '<p style="text-align:center;margin:18px 0"><a href="' . esc_url($cancel_url) . '" style="background:' . esc_attr($color_primary) . ';color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block">' . esc_html__('Annuler le rendez-vous', 'ts-appointment') . '</a></p>';
         }
 
-        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0} .container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px} .card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)} .hero{background:' . $color_primary . ';color:#fff;padding:28px;text-align:center} .content{padding:24px} .meta{display:flex;flex-wrap:wrap;margin:12px 0} .meta .label{flex:0 0 140px;font-weight:700;color:' . $color_primary . '} .meta .value{flex:1} .footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Confirmation de rendez-vous', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html(self::get_client_field($appointment, 'client_name'))) . '</p><p>' . sprintf(esc_html__('Votre rendez-vous auprès de %s a été confirmé.', 'ts-appointment'), esc_html($business_name)) . '</p><div class="meta"><div class="label">' . esc_html__('Service', 'ts-appointment') . '</div><div class="value">' . esc_html($service->name) . '</div></div><div class="meta"><div class="label">' . esc_html__('Date', 'ts-appointment') . '</div><div class="value">' . $date_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Heure', 'ts-appointment') . '</div><div class="value">' . $time_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Lieu', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment_type) . '</div></div>';
-        if (self::get_client_field($appointment, 'client_address')) {
-            $html .= '<div class="meta"><div class="label">' . esc_html__('Adresse', 'ts-appointment') . '</div><div class="value">' . esc_html(self::get_client_field($appointment, 'client_address')) . '</div></div>';
+        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0} .container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px} .card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)} .hero{background:' . $color_primary . ';color:#fff;padding:28px;text-align:center} .content{padding:24px} .meta{display:flex;flex-wrap:wrap;margin:12px 0} .meta .label{flex:0 0 140px;font-weight:700;color:' . $color_primary . '} .meta .value{flex:1} .footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Confirmation de rendez-vous', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html($appointment->client_name)) . '</p><p>' . sprintf(esc_html__('Votre rendez-vous auprès de %s a été confirmé.', 'ts-appointment'), esc_html($business_name)) . '</p><div class="meta"><div class="label">' . esc_html__('Service', 'ts-appointment') . '</div><div class="value">' . esc_html($service->name) . '</div></div><div class="meta"><div class="label">' . esc_html__('Date', 'ts-appointment') . '</div><div class="value">' . $date_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Heure', 'ts-appointment') . '</div><div class="value">' . $time_formatted . '</div></div><div class="meta"><div class="label">' . esc_html__('Lieu', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment_type) . '</div></div>';
+        if (!empty($appointment->client_address)) {
+            $html .= '<div class="meta"><div class="label">' . esc_html__('Adresse', 'ts-appointment') . '</div><div class="value">' . esc_html($appointment->client_address) . '</div></div>';
         }
 
         $html .= $cancel_button_html;
@@ -347,19 +328,19 @@ class TS_Appointment_Email {
                         <h1>' . __('Nouveau rendez-vous', 'ts-appointment') . '</h1>
                     </div>
                     <div class="content">
-                        <h2>' . sprintf(__('Rendez-vous de %s', 'ts-appointment'), esc_html(self::get_client_field($appointment, 'client_name'))) . '</h2>
+                        <h2>' . sprintf(__('Rendez-vous de %s', 'ts-appointment'), esc_html($appointment->client_name)) . '</h2>
                         
                         <div class="detail-row">
                             <div class="detail-label">' . __('Client', 'ts-appointment') . ':</div>
-                            <div>' . esc_html(self::get_client_field($appointment, 'client_name')) . '</div>
+                            <div>' . esc_html($appointment->client_name) . '</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">' . __('Email', 'ts-appointment') . ':</div>
-                            <div>' . esc_html(self::get_client_field($appointment, 'client_email')) . '</div>
+                            <div>' . esc_html($appointment->client_email) . '</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">' . __('Téléphone', 'ts-appointment') . ':</div>
-                            <div>' . esc_html(self::get_client_field($appointment, 'client_phone')) . '</div>
+                            <div>' . esc_html($appointment->client_phone) . '</div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">' . __('Service', 'ts-appointment') . ':</div>
@@ -373,16 +354,16 @@ class TS_Appointment_Email {
                             <div class="detail-label">' . __('Type', 'ts-appointment') . ':</div>
                             <div>' . $appointment_type . '</div>
                         </div>
-                        ' . (self::get_client_field($appointment, 'client_address') ? '
+                        ' . ($appointment->client_address ? '
                         <div class="detail-row">
                             <div class="detail-label">' . __('Adresse', 'ts-appointment') . ':</div>
-                            <div>' . esc_html(self::get_client_field($appointment, 'client_address')) . '</div>
+                            <div>' . esc_html($appointment->client_address) . '</div>
                         </div>
                         ' : '') . '
-                        ' . (self::get_client_field($appointment, 'notes') ? '
+                        ' . ($appointment->notes ? '
                         <div class="detail-row">
                             <div class="detail-label">' . __('Notes', 'ts-appointment') . ':</div>
-                            <div>' . esc_html(self::get_client_field($appointment, 'notes')) . '</div>
+                            <div>' . esc_html($appointment->notes) . '</div>
                         </div>
                         ' : '') . '
                     </div>
@@ -397,7 +378,7 @@ class TS_Appointment_Email {
     }
 
     private static function get_cancellation_email_template($appointment, $service, $business_name, $reason) {
-        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0}.container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px}.card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)}.hero{background:#c0392b;color:#fff;padding:22px;text-align:center}.content{padding:22px}.footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Annulation de rendez-vous', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html(self::get_client_field($appointment, 'client_name'))) . '</p><p>' . sprintf(esc_html__('Votre rendez-vous du %s a été annulé.', 'ts-appointment'), date_i18n('j F Y H:i', strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) . '</p>';
+        $html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Helvetica,Arial,sans-serif;color:#333;margin:0;padding:0}.container{max-width:680px;margin:0 auto;background:#f6f7fb;padding:24px}.card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06)}.hero{background:#c0392b;color:#fff;padding:22px;text-align:center}.content{padding:22px}.footer{font-size:13px;color:#777;text-align:center;padding:18px}</style></head><body><div class="container"><div class="card"><div class="hero"><h2>' . esc_html__('Annulation de rendez-vous', 'ts-appointment') . '</h2></div><div class="content"><p>' . sprintf(esc_html__('Bonjour %s,', 'ts-appointment'), esc_html($appointment->client_name)) . '</p><p>' . sprintf(esc_html__('Votre rendez-vous du %s a été annulé.', 'ts-appointment'), date_i18n('j F Y H:i', strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) . '</p>';
         if ($reason) {
             $html .= '<p><strong>' . esc_html__('Raison:', 'ts-appointment') . '</strong> ' . esc_html($reason) . '</p>';
         }
@@ -550,24 +531,8 @@ class TS_Appointment_Email {
         if (!empty($description)) $ical .= "DESCRIPTION:" . self::escape_ical_text($description) . "\r\n";
         if (!empty($location)) $ical .= "LOCATION:" . self::escape_ical_text($location) . "\r\n";
         if (!empty($organizer)) $ical .= "ORGANIZER:MAILTO:" . esc_html($business_email) . "\r\n";
-        // Determine attendee name/email from client_data JSON or legacy properties
-        $client_email = '';
-        $client_name = '';
-        
-        // Defensive decode (separate to avoid notices)
-        $client_data_arr = array();
-        if (!empty($appointment->client_data)) {
-            $client_data_arr = json_decode($appointment->client_data, true);
-            if (!is_array($client_data_arr)) $client_data_arr = array();
-        }
-        if (!empty($client_data_arr['client_email'])) $client_email = $client_data_arr['client_email'];
-        elseif (!empty($appointment->client_email)) $client_email = $appointment->client_email;
-
-        if (!empty($client_data_arr['client_name'])) $client_name = $client_data_arr['client_name'];
-        elseif (!empty($appointment->client_name)) $client_name = $appointment->client_name;
-
-        if (!empty($client_email)) {
-            $ical .= "ATTENDEE;CN=" . self::escape_ical_text($client_name ?: $client_email) . ":MAILTO:" . esc_html($client_email) . "\r\n";
+        if (!empty($appointment->client_email)) {
+            $ical .= "ATTENDEE;CN=" . self::escape_ical_text($appointment->client_name ?? $appointment->client_email) . ":MAILTO:" . esc_html($appointment->client_email) . "\r\n";
         }
         if ($reminder_min > 0) {
             $ical .= "BEGIN:VALARM\r\n";
@@ -674,34 +639,19 @@ class TS_Appointment_Email {
         $ctx['business_address'] = get_option('ts_appointment_business_address');
         $ctx['appointment_id'] = isset($appointment->id) ? $appointment->id : '';
 
-        // Decode stored client_data (JSON) and inject form schema fields
-        $client_data = array();
-        if (!empty($appointment->client_data)) {
-            $client_data = json_decode($appointment->client_data, true);
-            if (!is_array($client_data)) $client_data = array();
-        }
-
+        // Inject form schema fields
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
                 $fk = isset($f['key']) ? $f['key'] : '';
                 if (!$fk) continue;
-                if (isset($client_data[$fk])) {
-                    $ctx[$fk] = $client_data[$fk];
-                } elseif (isset($appointment->{$fk})) {
-                    $ctx[$fk] = $appointment->{$fk};
-                } else {
-                    $ctx[$fk] = '';
-                }
+                $ctx[$fk] = isset($appointment->{$fk}) ? $appointment->{$fk} : '';
             }
         }
 
-        // Also expose client_address and notes if present in client_data or appointment
-        if (isset($client_data['client_address'])) $ctx['client_address'] = $client_data['client_address'];
-        elseif (isset($appointment->client_address)) $ctx['client_address'] = $appointment->client_address;
-
-        if (isset($client_data['notes'])) $ctx['notes'] = $client_data['notes'];
-        elseif (isset($appointment->notes)) $ctx['notes'] = $appointment->notes;
+        // Also expose client_address and notes if present
+        if (isset($appointment->client_address)) $ctx['client_address'] = $appointment->client_address;
+        if (isset($appointment->notes)) $ctx['notes'] = $appointment->notes;
 
         // Merge overrides
         foreach ($overrides as $k => $v) {

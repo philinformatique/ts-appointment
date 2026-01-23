@@ -28,48 +28,48 @@ class TS_Appointment_Manager {
             'status' => 'pending',
         );
 
-        // Collect form-schema fields into client_data JSON
-        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        // Map schema fields into appointment columns when possible (client_name, client_email, client_phone, client_address, notes)
+        $form_schema = isset($form_schema) && is_array($form_schema) ? $form_schema : json_decode(get_option('ts_appointment_form_schema'), true);
+        $mapped_cols = array('client_name','client_email','client_phone','client_address','notes');
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
-        $client_data = array();
+        $used_keys = array();
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
                 $k = isset($f['key']) ? $f['key'] : '';
                 if (!$k) continue;
-                $val = null;
-                if (isset($data[$k])) $val = $data[$k];
-                elseif (isset($extra[$k])) $val = $extra[$k];
-                if ($val === null || $val === '') continue;
-                switch ($f['type'] ?? 'text') {
-                    case 'email':
-                        $client_data[$k] = sanitize_email($val);
-                        break;
-                    case 'textarea':
-                        $client_data[$k] = sanitize_textarea_field($val);
-                        break;
-                    case 'number':
-                        $client_data[$k] = sanitize_text_field($val);
-                        break;
-                    case 'checkbox':
-                        $client_data[$k] = is_array($val) ? array_map('sanitize_text_field', $val) : sanitize_text_field($val);
-                        break;
-                    default:
-                        $client_data[$k] = sanitize_text_field($val);
+                if (in_array($k, $mapped_cols, true)) {
+                    $val = null;
+                    if (isset($data[$k])) $val = $data[$k];
+                    elseif (isset($extra[$k])) $val = $extra[$k];
+
+                    if ($val !== null) {
+                        if ($k === 'notes') {
+                            $appointment_data['notes'] = sanitize_textarea_field($val);
+                        } elseif ($k === 'client_email') {
+                            $appointment_data['client_email'] = sanitize_email($val);
+                        } else {
+                            $appointment_data[$k] = sanitize_text_field($val);
+                        }
+                        $used_keys[] = $k;
+                    }
                 }
             }
         }
 
-        // Include any non-schema extras under an 'extras' key so data isn't lost
-        $other_extras = array();
-        foreach ($extra as $k => $v) {
-            if (is_array($form_schema) && array_search($k, array_column($form_schema, 'key')) !== false) continue;
-            if ($v === '' || $v === null) continue;
-            $other_extras[$k] = is_array($v) ? array_map('sanitize_text_field', $v) : sanitize_text_field($v);
-        }
-        if (!empty($other_extras)) $client_data['extras'] = $other_extras;
+        // Ensure notes key exists
+        if (!isset($appointment_data['notes'])) $appointment_data['notes'] = '';
 
-        // Persist client_data into appointment record
-        $appointment_data['client_data'] = wp_json_encode($client_data);
+        // Incorporer les champs supplémentaires dans les notes (sauf ceux mappés dans appointment columns)
+        if (!empty($extra) && is_array($extra)) {
+            $notes_extra = "\n\n" . __('Champs supplémentaires', 'ts-appointment') . ":\n";
+            foreach ($extra as $k => $v) {
+                if (in_array($k, $used_keys, true)) continue; // already mapped to column
+                if ($v === '' || $v === null) continue;
+                $label = ucfirst(str_replace('_',' ', sanitize_text_field($k)));
+                $notes_extra .= '- ' . $label . ': ' . sanitize_text_field(is_array($v) ? implode(', ', $v) : $v) . "\n";
+            }
+            $appointment_data['notes'] = trim(($appointment_data['notes'] ?? '') . $notes_extra);
+        }
 
         $appointment_id = TS_Appointment_Database::insert_appointment($appointment_data);
 
