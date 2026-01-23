@@ -105,23 +105,231 @@ class TS_Appointment {
         // Otherwise show a simple confirmation page
         $appointment = TS_Appointment_Database::get_appointment($id);
         $appt_date = $appointment ? esc_html(date_i18n(get_option('ts_appointment_date_format', 'j/m/Y') . ' ' . get_option('ts_appointment_time_format', 'H:i'), strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) : '';
+        $business_name = get_option('ts_appointment_business_name');
         $cancel_action = esc_url(admin_url('admin-post.php?action=ts_appointment_cancel_public'));
-        // Render minimal confirmation HTML
-        echo '<!doctype html><html><head><meta charset="utf-8"><title>' . esc_html__('Confirmation d\'annulation', 'ts-appointment') . '</title></head><body style="font-family:Arial,Helvetica,sans-serif;padding:24px;">';
-        echo '<h1>' . esc_html__('Confirmer l\'annulation', 'ts-appointment') . '</h1>';
-        if ($appointment) {
-            echo '<p>' . sprintf(esc_html__('Vous êtes sur le point d\'annuler le rendez-vous #%d pour le %s.', 'ts-appointment'), intval($appointment->id), $appt_date) . '</p>';
-        } else {
-            echo '<p>' . esc_html__('Vous êtes sur le point d\'annuler ce rendez-vous.', 'ts-appointment') . '</p>';
+        $color_primary = get_option('ts_appointment_color_primary', '#007cba');
+        
+        // Render professional responsive confirmation HTML
+        echo '<!doctype html>
+<html lang="' . esc_attr(get_bloginfo('language')) . '">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>' . esc_html__('Confirmation d\'annulation', 'ts-appointment') . '</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        echo '<form method="post" action="' . $cancel_action . '">';
-        echo '<input type="hidden" name="appointment_id" value="' . esc_attr($id) . '" />';
-        if (!empty($nonce)) echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '" />';
-        if (!empty($ct)) echo '<input type="hidden" name="ct" value="' . esc_attr($ct) . '" />';
-        echo '<input type="hidden" name="confirm" value="1" />';
-        echo '<p><button type="submit" style="background:#c0392b;color:#fff;padding:10px 16px;border:none;border-radius:4px;">' . esc_html__('Confirmer l\'annulation', 'ts-appointment') . '</button> ';
-        echo '<a href="' . esc_url(site_url()) . '" style="margin-left:12px;">' . esc_html__('Annuler (retour)', 'ts-appointment') . '</a></p>';
-        echo '</form></body></html>';
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #222;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .content {
+            background: #f9f9f9;
+            border-left: 4px solid ' . esc_attr($color_primary) . ';
+            padding: 20px;
+            margin-bottom: 32px;
+            border-radius: 4px;
+        }
+        
+        .appointment-info {
+            margin-bottom: 16px;
+        }
+        
+        .appointment-info:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            color: #222;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        
+        .warning-text {
+            color: #c0392b;
+            font-size: 14px;
+            margin-top: 20px;
+            padding: 16px;
+            background: #fff5f5;
+            border-radius: 4px;
+            border: 1px solid #feb2b2;
+        }
+        
+        .warning-text strong {
+            color: #a93226;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: all 0.3s ease;
+            -webkit-appearance: none;
+        }
+        
+        .btn-confirm {
+            background: #c0392b;
+            color: white;
+            order: 2;
+        }
+        
+        .btn-confirm:hover {
+            background: #a93226;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+        }
+        
+        .btn-cancel {
+            background: #ecf0f1;
+            color: #222;
+            order: 1;
+        }
+        
+        .btn-cancel:hover {
+            background: #d5dbdb;
+            transform: translateY(-2px);
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 24px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .content {
+                padding: 16px;
+            }
+            
+            .info-value {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">⚠️</div>
+            <h1>' . esc_html__('Confirmer l\'annulation', 'ts-appointment') . '</h1>
+            <p class="subtitle">' . esc_html__('Veuillez vérifier les informations ci-dessous', 'ts-appointment') . '</p>
+        </div>
+        
+        <div class="content">
+            <div class="appointment-info">
+                <div class="info-label">' . esc_html__('Entreprise', 'ts-appointment') . '</div>
+                <div class="info-value">' . esc_html($business_name ?: get_bloginfo('name')) . '</div>
+            </div>';
+            
+            if ($appointment) {
+                echo '<div class="appointment-info">
+                    <div class="info-label">' . esc_html__('Numéro de rendez-vous', 'ts-appointment') . '</div>
+                    <div class="info-value">#' . intval($appointment->id) . '</div>
+                </div>
+                <div class="appointment-info">
+                    <div class="info-label">' . esc_html__('Date et heure', 'ts-appointment') . '</div>
+                    <div class="info-value">' . esc_html($appt_date) . '</div>
+                </div>';
+            }
+            
+            echo '<div class="warning-text">
+                <strong>' . esc_html__('Attention :', 'ts-appointment') . '</strong><br>
+                ' . esc_html__('Cette action est irréversible. Une fois annulé, le créneau sera de nouveau disponible.', 'ts-appointment') . '
+            </div>
+        </div>
+        
+        <form method="post" action="' . $cancel_action . '">
+            <input type="hidden" name="appointment_id" value="' . esc_attr($id) . '" />';
+            
+            if (!empty($nonce)) echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '" />';
+            if (!empty($ct)) echo '<input type="hidden" name="ct" value="' . esc_attr($ct) . '" />';
+            
+            echo '<input type="hidden" name="confirm" value="1" />
+            
+            <div class="actions">
+                <a href="' . esc_url(site_url()) . '" class="btn btn-cancel">' . esc_html__('Retour', 'ts-appointment') . '</a>
+                <button type="submit" class="btn btn-confirm">' . esc_html__('Oui, annuler le rendez-vous', 'ts-appointment') . '</button>
+            </div>
+        </form>
+        
+        <div class="footer">
+            <p>' . esc_html__('Vous recevrez une confirmation par email une fois l\'annulation traitée.', 'ts-appointment') . '</p>
+        </div>
+    </div>
+</body>
+</html>';
         exit;
     }
 
