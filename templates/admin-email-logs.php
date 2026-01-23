@@ -88,11 +88,18 @@ if (!defined('ABSPATH')) exit;
             echo '<input type="hidden" name="appointment_id" value="' . intval($appt->id) . '">';
             echo '<table class="form-table">';
             if (is_array($form_schema)) {
+                // Decode client_data JSON to get field values
+                $client_data = array();
+                if (!empty($appt->client_data)) {
+                    $client_data = json_decode($appt->client_data, true);
+                    if (!is_array($client_data)) $client_data = array();
+                }
                 foreach ($form_schema as $f) {
                     if (empty($f['key'])) continue;
                     $k = $f['key'];
                     $label = isset($f['label']) ? $f['label'] : $k;
-                    $val = isset($appt->{$k}) ? $appt->{$k} : '';
+                    // Try client_data first, then direct property for backward compatibility
+                    $val = isset($client_data[$k]) ? $client_data[$k] : (isset($appt->{$k}) ? $appt->{$k} : '');
                     echo '<tr><th><label>' . esc_html($label) . '</label></th><td>';
                     if ($f['type'] === 'textarea') {
                         echo '<textarea name="' . esc_attr($k) . '" rows="4" cols="60">' . esc_textarea($val) . '</textarea>';

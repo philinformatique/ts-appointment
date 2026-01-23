@@ -613,7 +613,8 @@
 
         function collectBaseExtras() {
             const result = {};
-            const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_address','client_name','client_email','client_phone','notes'];
+            // Exclude only the core booking fields - all other fields go to server for processing
+            const exclude = ['service_id','appointment_type','appointment_date','appointment_time'];
             $('#ts-appointment-form').find('input, select, textarea').each(function() {
                 const name = $(this).attr('name');
                 if (!name || name.startsWith('extra[')) return;

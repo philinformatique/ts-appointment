@@ -132,18 +132,34 @@
             const formattedDate = isNaN(dateTime.getTime()) ? '' : dateTime.toLocaleDateString('fr-FR');
             const formattedTime = isNaN(dateTime.getTime()) ? '' : dateTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+            // Parse client_data JSON to get client info
+            let clientData = {};
+            if (appointment.client_data) {
+                try {
+                    clientData = typeof appointment.client_data === 'string' ? JSON.parse(appointment.client_data) : appointment.client_data;
+                } catch (e) {
+                    console.error('Failed to parse client_data:', e);
+                }
+            }
+
+            const clientName = clientData.client_name || appointment.client_name || '';
+            const clientEmail = clientData.client_email || appointment.client_email || '';
+            const clientPhone = clientData.client_phone || appointment.client_phone || '';
+            const clientAddress = clientData.client_address || appointment.client_address || '';
+            const notes = clientData.notes || appointment.notes || '';
+
             const modal = `
                 <div style="position: fixed;top: 0;left: 0;right: 0;bottom: 0;background: rgba(0,0,0,0.7);display: flex;align-items: center;justify-content: center;z-index: 10000;" class="appointment-modal-bg">
                     <div style="background: white;padding: 30px;border-radius: 8px;max-width: 500px;width: 90%;" class="appointment-modal">
                         <h2 style="margin-top: 0; margin-bottom: 20px; color: #007cba;">${__('Détails du rendez-vous')}</h2>
 
-                        <div style="margin-bottom: 15px;"><strong>${__('Nom:')}</strong> ${appointment.client_name || ''}</div>
-                        <div style="margin-bottom: 15px;"><strong>${__('Email:')}</strong> ${appointment.client_email || ''}</div>
-                        <div style="margin-bottom: 15px;"><strong>${__('Téléphone:')}</strong> ${appointment.client_phone || ''}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Nom:')}</strong> ${clientName}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Email:')}</strong> ${clientEmail}</div>
+                        <div style="margin-bottom: 15px;"><strong>${__('Téléphone:')}</strong> ${clientPhone}</div>
                         <div style="margin-bottom: 15px;"><strong>${__('Date:')}</strong> ${formattedDate} ${formattedTime ? 'à ' + formattedTime : ''}</div>
                         <div style="margin-bottom: 15px;"><strong>${__('Type:')}</strong> ${locationLabels[appointment.appointment_type] || appointment.appointment_type || ''}</div>
-                        ${appointment.client_address ? `<div style="margin-bottom: 15px;"><strong>${__('Adresse:')}</strong> ${appointment.client_address}</div>` : ''}
-                        ${appointment.notes ? `<div style="margin-bottom: 15px;"><strong>${__('Notes:')}</strong> ${appointment.notes}</div>` : ''}
+                        ${clientAddress ? `<div style="margin-bottom: 15px;"><strong>${__('Adresse:')}</strong> ${clientAddress}</div>` : ''}
+                        ${notes ? `<div style="margin-bottom: 15px;"><strong>${__('Notes:')}</strong> ${notes}</div>` : ''}
                         <div style="margin-bottom: 15px;"><strong>${__('Statut:')}</strong> <span style="display: inline-block;padding: 4px 8px;border-radius: 4px;background: #f0f0f0;color: #333;">${statusLabels[appointment.status] || appointment.status || ''}</span></div>
 
                         <div style="margin-top: 25px; text-align: right;"><button class="close-modal" style="padding: 8px 16px;background: #007cba;color: white;border: none;border-radius: 4px;cursor: pointer;font-weight: 600;">${__('Fermer')}</button></div>

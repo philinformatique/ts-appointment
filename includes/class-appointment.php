@@ -28,10 +28,12 @@ class TS_Appointment_Manager {
             'status' => 'pending',
         );
 
-        // Build client_data JSON from schema fields
+        // Build client_data JSON from schema fields and location extras
         $client_data_json = array();
-        $form_schema = isset($form_schema) && is_array($form_schema) ? $form_schema : json_decode(get_option('ts_appointment_form_schema'), true);
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
+        
+        // Collect form schema fields
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
                 $k = isset($f['key']) ? $f['key'] : '';
@@ -44,49 +46,18 @@ class TS_Appointment_Manager {
                 }
             }
         }
-        // Store the complete client_data as JSON
-        $appointment_data['client_data'] = wp_json_encode($client_data_json);
-
-        // Map schema fields into appointment columns when possible (client_name, client_email, client_phone, client_address, notes)
-        $mapped_cols = array('client_name','client_email','client_phone','client_address','notes');
-        $used_keys = array();
-        if (is_array($form_schema)) {
-            foreach ($form_schema as $f) {
-                $k = isset($f['key']) ? $f['key'] : '';
-                if (!$k) continue;
-                if (in_array($k, $mapped_cols, true)) {
-                    $val = null;
-                    if (isset($data[$k])) $val = $data[$k];
-                    elseif (isset($extra[$k])) $val = $extra[$k];
-
-                    if ($val !== null) {
-                        if ($k === 'notes') {
-                            $appointment_data['notes'] = sanitize_textarea_field($val);
-                        } elseif ($k === 'client_email') {
-                            $appointment_data['client_email'] = sanitize_email($val);
-                        } else {
-                            $appointment_data[$k] = sanitize_text_field($val);
-                        }
-                        $used_keys[] = $k;
-                    }
+        
+        // Also include location-specific extras not in schema
+        if (!empty($extra) && is_array($extra)) {
+            foreach ($extra as $k => $v) {
+                if (!isset($client_data_json[$k]) && $v !== '' && $v !== null) {
+                    $client_data_json[$k] = $v;
                 }
             }
         }
-
-        // Ensure notes key exists
-        if (!isset($appointment_data['notes'])) $appointment_data['notes'] = '';
-
-        // Incorporer les champs supplémentaires dans les notes (sauf ceux mappés dans appointment columns)
-        if (!empty($extra) && is_array($extra)) {
-            $notes_extra = "\n\n" . __('Champs supplémentaires', 'ts-appointment') . ":\n";
-            foreach ($extra as $k => $v) {
-                if (in_array($k, $used_keys, true)) continue; // already mapped to column
-                if ($v === '' || $v === null) continue;
-                $label = ucfirst(str_replace('_',' ', sanitize_text_field($k)));
-                $notes_extra .= '- ' . $label . ': ' . sanitize_text_field(is_array($v) ? implode(', ', $v) : $v) . "\n";
-            }
-            $appointment_data['notes'] = trim(($appointment_data['notes'] ?? '') . $notes_extra);
-        }
+        
+        // Store the complete client_data as JSON
+        $appointment_data['client_data'] = wp_json_encode($client_data_json);
 
         $appointment_id = TS_Appointment_Database::insert_appointment($appointment_data);
 
