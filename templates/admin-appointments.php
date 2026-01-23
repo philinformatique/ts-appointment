@@ -107,15 +107,7 @@
                                     if (is_array($val)) $val = implode(', ', $val);
                                     echo '<td>' . esc_html($val) . '</td>';
                                 }
-                            } else {
-                                // fallback fields
-                                $display_name = $client_data['client_name'] ?? '';
-                                $display_email = $client_data['client_email'] ?? '';
-                                $display_phone = $client_data['client_phone'] ?? '';
-                                echo '<td>' . esc_html($display_name) . '</td>';
-                                echo '<td>' . esc_html($display_email) . '</td>';
-                                echo '<td>' . esc_html($display_phone) . '</td>';
-                            }
+                            } 
                         ?>
                         <td><?php echo esc_html(date_i18n('j/m/Y H:i', strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))); ?></td>
                         <td><?php echo esc_html(isset($type_labels[$appointment->appointment_type]) ? $type_labels[$appointment->appointment_type] : $appointment->appointment_type); ?></td>
