@@ -54,6 +54,7 @@ class TS_Appointment_Database {
             appointment_type varchar(100) NOT NULL,
             appointment_date date NOT NULL,
             appointment_time time NOT NULL,
+            client_address longtext,
             notes longtext,
             status enum('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
             google_calendar_id varchar(255),

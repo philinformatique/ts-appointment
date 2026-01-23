@@ -28,6 +28,7 @@ class TS_Appointment_Manager {
             'appointment_type' => sanitize_text_field($data['appointment_type']),
             'appointment_date' => sanitize_text_field($data['appointment_date']),
             'appointment_time' => sanitize_text_field($data['appointment_time']),
+            'client_address' => isset($data['client_address']) ? sanitize_textarea_field($data['client_address']) : '',
             'notes' => isset($data['notes']) ? sanitize_textarea_field($data['notes']) : '',
             'status' => 'pending',
         );
@@ -147,12 +148,19 @@ class TS_Appointment_Manager {
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
         if (is_array($form_schema)) {
-            // Treat legacy client_address as core/ignored (field removed from form)
-            $core = array('client_name','client_email','client_phone','notes','client_address');
+            $core = array('client_name','client_email','client_phone','notes');
             foreach ($form_schema as $f) {
                 if (!empty($f['required'])) {
                     $k = isset($f['key']) ? $f['key'] : '';
                     if ($k && !in_array($k, $core, true)) {
+                        // If field has conditional visibility by location, and current appointment_type
+                        // is not listed, skip required validation for this field.
+                        $visible_locations = isset($f['visible_locations']) && is_array($f['visible_locations']) ? $f['visible_locations'] : array();
+                        if (!empty($visible_locations) && !in_array($data['appointment_type'], $visible_locations, true)) {
+                            // Not applicable for this selected location -> skip requirement
+                            continue;
+                        }
+
                         if (!isset($extra[$k]) || $extra[$k] === '') {
                             return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $f['label'] ?? $k));
                         }

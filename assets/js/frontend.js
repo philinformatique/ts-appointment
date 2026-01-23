@@ -56,14 +56,11 @@
             // When a location is selected, reveal extras and date
             $(document).on('change.reveal', 'input[name="appointment_type"]', function(){
                 const key = $(this).val();
-                // Hide all per-location extras and disable their inputs to prevent validation
-                $locationExtras.hide().find('textarea, input, select').each(function() { try { $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
+                $locationExtras.hide();
                 const $target = $('#loc-extra-' + key);
                 if ($target.length) {
                     $target.show();
-                    // Re-enable inputs inside the shown container and restore required flags
-                    $target.find('textarea, input, select').each(function() { try { $(this).prop('disabled', false); } catch (e) {} });
-                    $target.find('[required]').prop('required', true).prop('disabled', false);
+                    $target.find('[required]').prop('required', true);
                     $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 $appointmentDate.closest('.form-row').show();
@@ -157,9 +154,7 @@
                         $fg.show();
                         // restore original required if present
                         if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true).prop('disabled', false);
-                        } else {
-                            $fg.find('[name]').prop('disabled', false);
+                            $fg.find('[name]').prop('required', true);
                         }
                         return;
                     }
@@ -167,13 +162,11 @@
                     if (allowed.indexOf(key) !== -1) {
                         $fg.show();
                         if ($fg.attr('data-original-required')) {
-                            $fg.find('[name]').prop('required', true).prop('disabled', false);
-                        } else {
-                            $fg.find('[name]').prop('disabled', false);
+                            $fg.find('[name]').prop('required', true);
                         }
                     } else {
                         $fg.hide();
-                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
+                        $fg.find('input, textarea, select').each(function() { try { $(this).val(''); $(this).prop('required', false); } catch (e) {} });
                     }
                 });
             } catch (e) {}
@@ -206,13 +199,11 @@
         // Afficher/masquer les champs supplémentaires selon le lieu
         $(document).on('change', 'input[name="appointment_type"]', function() {
             const key = $(this).val();
-            // Hide and disable all per-location extras to avoid validation of hidden controls
-            $locationExtras.hide().find('textarea, input, select').each(function() { try { $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
+            $locationExtras.hide().find('textarea, input, select').prop('required', false);
             const $target = $('#loc-extra-' + key);
             if ($target.length) {
                 $target.show();
-                $target.find('textarea, input, select').each(function() { try { $(this).prop('disabled', false); } catch (e) {} });
-                $target.find('[required]').prop('required', true).prop('disabled', false);
+                $target.find('[required]').prop('required', true);
             }
             updatePriceDisplay();
             updateDateTimeLabels();
@@ -485,6 +476,7 @@
                 appointment_type: $('input[name="appointment_type"]:checked').val(),
                 appointment_date: $appointmentDate.val(),
                 appointment_time: $appointmentTime.val(),
+                // client_address removed from form — not submitted
                 notes: $('#notes').val(),
                 extra: Object.assign({}, collectExtraFields(), collectBaseExtras())
             };
@@ -494,7 +486,7 @@
                 return;
             }
 
-            // geocoding not required (field removed)
+            // client_address geocoding not required (field removed)
 
             if (turnstileEnabled) {
                 formData.turnstile_token = turnstileToken;
@@ -517,22 +509,6 @@
                 url: restUrl + 'appointment/book',
                 type: 'POST',
                 contentType: 'application/json',
-                // Debug: when debug flag is set, log the form payload and disabled fields
-                beforeSend: function(xhr) {
-                    if (restNonce) {
-                        xhr.setRequestHeader('X-WP-Nonce', restNonce);
-                    }
-                    if (typeof tsAppointment !== 'undefined' && tsAppointment.debug) {
-                        try {
-                            console.group('TS Appointment debug: submitting formData');
-                            console.log('formData', formData);
-                            var disabled = [];
-                            $('#ts-appointment-form').find('input,select,textarea').each(function() { if ($(this).is(':disabled')) disabled.push({name: $(this).attr('name'), type: this.tagName, id: $(this).attr('id')}); });
-                            console.log('disabled inputs', disabled);
-                            console.groupEnd();
-                        } catch (e) {}
-                    }
-                },
                 data: JSON.stringify(formData),
                 beforeSend: function(xhr) {
                     if (restNonce) {
@@ -619,7 +595,6 @@
             const $container = $('#loc-extra-' + selected);
             if (!$container.length) return result;
             $container.find('[name^="extra["]').each(function() {
-                if ($(this).is(':disabled')) return;
                 const name = $(this).attr('name');
                 const key = name.replace(/^extra\[(.+)\]$/, '$1');
                 if ($(this).is(':checkbox')) {
@@ -633,9 +608,8 @@
 
         function collectBaseExtras() {
             const result = {};
-            const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_name','client_email','client_phone','notes'];
+            const exclude = ['service_id','appointment_type','appointment_date','appointment_time','client_address','client_name','client_email','client_phone','notes'];
             $('#ts-appointment-form').find('input, select, textarea').each(function() {
-                if ($(this).is(':disabled')) return;
                 const name = $(this).attr('name');
                 if (!name || name.startsWith('extra[')) return;
                 if (exclude.indexOf(name) !== -1) return;
