@@ -15,7 +15,20 @@ if (!defined('ABSPATH')) {
 
         <h2><?php _e('Placeholders disponibles', 'ts-appointment'); ?></h2>
         <p class="description">
-            <strong>{client_name}</strong>, <strong>{client_phone}</strong>, <strong>{client_email}</strong>, <strong>{service_name}</strong>, <strong>{appointment_date}</strong>, <strong>{appointment_time}</strong>, <strong>{location}</strong>, <strong>{business_name}</strong>, <strong>{business_address}</strong>, <strong>{appointment_id}</strong>, <strong>{client_address}</strong>, <strong>{notes}</strong>, <strong>{reason}</strong>, <strong>{cancel_url}</strong>, <strong>{cancel_button}</strong>
+            <?php
+            // Build placeholder list from form schema plus common placeholders
+            $placeholders = array();
+            $form_schema_raw = get_option('ts_appointment_form_schema');
+            $form_schema = json_decode($form_schema_raw, true);
+            if (is_array($form_schema)) {
+                foreach ($form_schema as $f) {
+                    if (!empty($f['key'])) $placeholders[] = '{' . esc_html($f['key']) . '}';
+                }
+            }
+            $common = array('{service_name}','{appointment_date}','{appointment_time}','{location}','{business_name}','{business_address}','{appointment_id}','{cancel_url}','{cancel_button}','{reason}');
+            $placeholders = array_merge($placeholders, $common);
+            echo implode(', ', array_map(function($p){ return '<strong>' . $p . '</strong>'; }, $placeholders));
+            ?>
         </p>
         <p class="description"><strong><?php _e('Exemple conditionnel', 'ts-appointment'); ?> :</strong> {if location==atelier}Texte spécial pour l\'atelier{else}Texte par défaut{endif}</p>
 
@@ -67,24 +80,36 @@ if (!defined('ABSPATH')) {
             var ta = document.querySelector('[name="templates['+key+'][body]"]');
             if (ta) body = ta.value;
         }
-        // Sample placeholders
-        var sample = {
-            '{client_name}':'Jean Dupont',
-            '{client_phone}':'0123456789',
-            '{client_email}':'jean@example.com',
-            '{service_name}':'Consultation',
-            '{appointment_date}':'15/03/2026',
-            '{appointment_time}':'14:00',
-            '{location}':'Au cabinet',
-            '{business_name}':document.title || 'Mon entreprise',
-            '{business_address}':'<?php echo esc_js(get_option('ts_appointment_business_address')); ?>',
-            '{appointment_id}':'12345',
-            '{client_address}':'12 rue Principale, 75000 Paris',
-            '{notes}':'Remarque exemple',
-            '{reason}':'Raison fournie',
-            '{cancel_url}':'https://example.com/cancel?appt=12345',
-            '{cancel_button}':'[Bouton d\'annulation]'
-        };
+        // Sample placeholders (generated from PHP schema)
+        var sample = <?php
+            $sample = array();
+            if (is_array($form_schema)) {
+                foreach ($form_schema as $f) {
+                    if (empty($f['key'])) continue;
+                    // choose a sample value based on type when possible
+                    $type = isset($f['type']) ? $f['type'] : 'text';
+                    $key = '{' . $f['key'] . '}';
+                    switch ($type) {
+                        case 'email': $sample[$key] = 'jean@example.com'; break;
+                        case 'tel': $sample[$key] = '0123456789'; break;
+                        case 'textarea': $sample[$key] = 'Remarque exemple'; break;
+                        default: $sample[$key] = isset($f['label']) ? $f['label'] . ' exemple' : 'Exemple'; break;
+                    }
+                }
+            }
+            // common placeholders
+            $sample['{service_name}'] = 'Consultation';
+            $sample['{appointment_date}'] = '15/03/2026';
+            $sample['{appointment_time}'] = '14:00';
+            $sample['{location}'] = 'Au cabinet';
+            $sample['{business_name}'] = get_bloginfo('name');
+            $sample['{business_address}'] = get_option('ts_appointment_business_address');
+            $sample['{appointment_id}'] = '12345';
+            $sample['{reason}'] = 'Raison fournie';
+            $sample['{cancel_url}'] = 'https://example.com/cancel?appt=12345';
+            $sample['{cancel_button}'] = '[Bouton d\'annulation]';
+            echo wp_json_encode($sample);
+        ?>;
         Object.keys(sample).forEach(function(p){
             subject = subject.replace(new RegExp(p,'g'), sample[p]);
             body = body.replace(new RegExp(p,'g'), sample[p]);
@@ -96,15 +121,29 @@ if (!defined('ABSPATH')) {
     
     // Live preview: update preview as user types (WYSIWYG-aware)
     (function(){
-        var sample = {
-            '{client_name}':'Jean Dupont',
-            '{service_name}':'Consultation',
-            '{appointment_date}':'15/03/2026',
-            '{appointment_time}':'14:00',
-            '{location}':'Au cabinet',
-            '{business_name}':document.title || 'Mon entreprise',
-            '{business_address}':'<?php echo esc_js(get_option('ts_appointment_business_address')); ?>'
-        };
+        var sample = <?php
+            $live_sample = array();
+            if (is_array($form_schema)) {
+                foreach ($form_schema as $f) {
+                    if (empty($f['key'])) continue;
+                    $type = isset($f['type']) ? $f['type'] : 'text';
+                    $k = '{' . $f['key'] . '}';
+                    switch ($type) {
+                        case 'email': $live_sample[$k] = 'jean@example.com'; break;
+                        case 'tel': $live_sample[$k] = '0123456789'; break;
+                        case 'textarea': $live_sample[$k] = 'Remarque exemple'; break;
+                        default: $live_sample[$k] = isset($f['label']) ? $f['label'] . ' exemple' : 'Exemple'; break;
+                    }
+                }
+            }
+            $live_sample['{service_name}'] = 'Consultation';
+            $live_sample['{appointment_date}'] = '15/03/2026';
+            $live_sample['{appointment_time}'] = '14:00';
+            $live_sample['{location}'] = 'Au cabinet';
+            $live_sample['{business_name}'] = get_bloginfo('name');
+            $live_sample['{business_address}'] = get_option('ts_appointment_business_address');
+            echo wp_json_encode($live_sample);
+        ?>;
 
         function applySample(str){
             Object.keys(sample).forEach(function(p){

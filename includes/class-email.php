@@ -15,30 +15,19 @@ class TS_Appointment_Email {
         $business_name = get_option('ts_appointment_business_name');
         $business_address = get_option('ts_appointment_business_address');
 
-        $subject = self::render_email_template_subject('client_new', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
-
-        $message = self::render_email_template_body('client_new', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'appointment_id' => $appointment->id,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
+        $context = self::build_email_context($appointment);
+        $subject = self::render_email_template_subject('client_new', $context);
+        $message = self::render_email_template_body('client_new', $context);
+        // Inject all form schema fields into context automatically (use appointment properties when available)
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $fk = isset($f['key']) ? $f['key'] : '';
+                if ($fk && !isset($message)) {
+                    // noop - keep for clarity
+                }
+            }
+        }
         
         $headers = array(
             'Content-Type: text/html; charset=UTF-8',
@@ -75,30 +64,9 @@ class TS_Appointment_Email {
         $business_name = get_option('ts_appointment_business_name');
         $business_address = get_option('ts_appointment_business_address');
 
-        $subject = self::render_email_template_subject('client_confirmation', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
-
-        $message = self::render_email_template_body('client_confirmation', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'appointment_id' => $appointment->id,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
+        $context = self::build_email_context($appointment);
+        $subject = self::render_email_template_subject('client_confirmation', $context);
+        $message = self::render_email_template_body('client_confirmation', $context);
         
         $headers = array(
             'Content-Type: text/html; charset=UTF-8',
@@ -131,29 +99,9 @@ class TS_Appointment_Email {
         $business_name = get_option('ts_appointment_business_name');
         $business_address = get_option('ts_appointment_business_address');
 
-        $subject = self::render_email_template_subject('admin_new', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
-
-        $message = self::render_email_template_body('admin_new', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
+        $context = self::build_email_context($appointment);
+        $subject = self::render_email_template_subject('admin_new', $context);
+        $message = self::render_email_template_body('admin_new', $context);
         
         $headers = array(
             'Content-Type: text/html; charset=UTF-8',
@@ -173,29 +121,9 @@ class TS_Appointment_Email {
         $business_name = get_option('ts_appointment_business_name');
         $business_address = get_option('ts_appointment_business_address');
 
-        $subject = self::render_email_template_subject('client_cancellation', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'client_address' => $appointment->client_address,
-        ));
-
-        $message = self::render_email_template_body('client_cancellation', array(
-            'client_name' => $appointment->client_name,
-            'service_name' => $service->name,
-            'appointment_date' => $appointment->appointment_date,
-            'appointment_time' => $appointment->appointment_time,
-            'location' => $appointment->appointment_type,
-            'business_name' => $business_name,
-            'business_address' => $business_address,
-            'reason' => $reason,
-            'client_address' => $appointment->client_address,
-            'notes' => isset($appointment->notes) ? $appointment->notes : '',
-        ));
+        $context = self::build_email_context($appointment, array('reason' => $reason));
+        $subject = self::render_email_template_subject('client_cancellation', $context);
+        $message = self::render_email_template_body('client_cancellation', $context);
         
         $headers = array(
             'Content-Type: text/html; charset=UTF-8',
@@ -385,7 +313,15 @@ class TS_Appointment_Email {
         if (is_array($templates) && !empty($templates[$key]['subject'])) {
             $subject = $templates[$key]['subject'];
             foreach ($context as $k => $v) {
-                $subject = str_replace('{' . $k . '}', $v, $subject);
+                // ensure we replace with strings for arrays/objects
+                if (is_array($v)) {
+                    $rep = implode(', ', array_map('strval', $v));
+                } elseif (is_object($v)) {
+                    $rep = method_exists($v, '__toString') ? (string)$v : '';
+                } else {
+                    $rep = (string)$v;
+                }
+                $subject = str_replace('{' . $k . '}', $rep, $subject);
             }
             return wp_strip_all_tags($subject);
         }
@@ -606,6 +542,43 @@ class TS_Appointment_Email {
         $nonce = wp_create_nonce('ts_appointment_cancel_' . $id);
         $token = self::generate_cancel_token_for_appointment($appt);
         return admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . $id . '&_wpnonce=' . $nonce . '&ct=' . rawurlencode($token));
+    }
+
+    /**
+     * Build a template context array from an appointment object.
+     * Includes all fields declared in `ts_appointment_form_schema`.
+     */
+    public static function build_email_context($appointment, $overrides = array()) {
+        $ctx = array();
+        $service = TS_Appointment_Database::get_service($appointment->service_id);
+        $ctx['service_name'] = $service ? $service->name : '';
+        $ctx['appointment_date'] = isset($appointment->appointment_date) ? $appointment->appointment_date : '';
+        $ctx['appointment_time'] = isset($appointment->appointment_time) ? $appointment->appointment_time : '';
+        $ctx['location'] = isset($appointment->appointment_type) ? $appointment->appointment_type : '';
+        $ctx['business_name'] = get_option('ts_appointment_business_name');
+        $ctx['business_address'] = get_option('ts_appointment_business_address');
+        $ctx['appointment_id'] = isset($appointment->id) ? $appointment->id : '';
+
+        // Inject form schema fields
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $fk = isset($f['key']) ? $f['key'] : '';
+                if (!$fk) continue;
+                $ctx[$fk] = isset($appointment->{$fk}) ? $appointment->{$fk} : '';
+            }
+        }
+
+        // Also expose client_address and notes if present
+        if (isset($appointment->client_address)) $ctx['client_address'] = $appointment->client_address;
+        if (isset($appointment->notes)) $ctx['notes'] = $appointment->notes;
+
+        // Merge overrides
+        foreach ($overrides as $k => $v) {
+            $ctx[$k] = $v;
+        }
+
+        return $ctx;
     }
 
     private static function escape_ical_text($text) {
