@@ -395,6 +395,93 @@ class TS_Appointment_Admin {
         include TS_APPOINTMENT_DIR . 'templates/admin-form.php';
     }
 
+    public static function display_email_logs() {
+        if (!current_user_can('manage_options')) return;
+
+        // handle POST actions: resend or save appointment edits
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce'])) {
+            if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_email_logs')) {
+                // Resend
+                if (!empty($_POST['resend_log']) && !empty($_POST['log_id'])) {
+                    $log_id = intval($_POST['log_id']);
+                    $log = TS_Appointment_Database::get_log($log_id);
+                    if ($log) {
+                        $appt = null;
+                        if (!empty($log->appointment_id)) $appt = TS_Appointment_Database::get_appointment($log->appointment_id);
+                        $type = $log->type;
+                        $ok = false;
+                        try {
+                            switch ($type) {
+                                case 'client_new':
+                                    if ($appt) $ok = TS_Appointment_Email::send_booking_notification($appt);
+                                    break;
+                                case 'client_confirmation':
+                                    if ($appt) $ok = TS_Appointment_Email::send_confirmation($appt);
+                                    break;
+                                case 'admin_new':
+                                    if ($appt) $ok = TS_Appointment_Email::send_admin_notification($appt);
+                                    break;
+                                case 'client_cancellation':
+                                    if ($appt) $ok = TS_Appointment_Email::send_cancellation($appt);
+                                    break;
+                            }
+                        } catch (Exception $e) {
+                            $ok = false;
+                            TS_Appointment_Database::update_log($log_id, array('status' => 'failed', 'error_message' => $e->getMessage()));
+                        }
+                        if ($ok) {
+                            TS_Appointment_Database::update_log($log_id, array('status' => 'resent'));
+                            echo '<div class="notice notice-success"><p>' . __('Email renvoyé avec succès.', 'ts-appointment') . '</p></div>';
+                        } else {
+                            echo '<div class="notice notice-error"><p>' . __('Echec de renvoi. Consulter le log pour plus de détails.', 'ts-appointment') . '</p></div>';
+                        }
+                    }
+                }
+
+                // Save appointment edits
+                if (!empty($_POST['save_appointment']) && !empty($_POST['appointment_id'])) {
+                    $appt_id = intval($_POST['appointment_id']);
+                    $appt = TS_Appointment_Database::get_appointment($appt_id);
+                    if ($appt) {
+                        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+                        $update = array();
+                        if (is_array($form_schema)) {
+                            foreach ($form_schema as $f) {
+                                if (empty($f['key'])) continue;
+                                $k = $f['key'];
+                                if (isset($_POST[$k])) {
+                                    // Only update if this column exists in appointments table (prevent invalid columns)
+                                    if (property_exists($appt, $k)) {
+                                        $update[$k] = sanitize_text_field($_POST[$k]);
+                                    } else {
+                                        // Map common aliases
+                                        if ($k === 'client_name' && property_exists($appt, 'client_name')) $update['client_name'] = sanitize_text_field($_POST[$k]);
+                                        if ($k === 'client_email' && property_exists($appt, 'client_email')) $update['client_email'] = sanitize_text_field($_POST[$k]);
+                                        if ($k === 'client_phone' && property_exists($appt, 'client_phone')) $update['client_phone'] = sanitize_text_field($_POST[$k]);
+                                        if ($k === 'notes' && property_exists($appt, 'notes')) $update['notes'] = wp_kses_post(wp_unslash($_POST[$k]));
+                                        if ($k === 'client_address' && property_exists($appt, 'client_address')) $update['client_address'] = wp_kses_post(wp_unslash($_POST[$k]));
+                                        if ($k === 'appointment_date' && property_exists($appt, 'appointment_date')) $update['appointment_date'] = sanitize_text_field($_POST[$k]);
+                                        if ($k === 'appointment_time' && property_exists($appt, 'appointment_time')) $update['appointment_time'] = sanitize_text_field($_POST[$k]);
+                                    }
+                                }
+                            }
+                        }
+                        // Allow editing status
+                        if (isset($_POST['status']) && property_exists($appt, 'status')) $update['status'] = sanitize_text_field($_POST['status']);
+                        if (!empty($update)) {
+                            TS_Appointment_Database::update_appointment($appt_id, $update);
+                            echo '<div class="notice notice-success"><p>' . __('Rendez-vous mis à jour.', 'ts-appointment') . '</p></div>';
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fetch logs (most recent)
+        $logs = TS_Appointment_Database::get_logs(200, 0);
+        include TS_APPOINTMENT_DIR . 'templates/admin-email-logs.php';
+    }
+
     public static function display_slots() {
         // S'assurer que les tables existent pour éviter des insertions silencieuses
         TS_Appointment_Database::maybe_create_tables();

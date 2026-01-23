@@ -79,6 +79,25 @@ class TS_Appointment_Database {
             INDEX idx_option_name (option_name)
         ) $charset_collate;";
 
+        // Table des logs d'emails et actions (lightweight)
+        $logs_table = $wpdb->prefix . 'ts_appointment_logs';
+        $sql[] = "CREATE TABLE IF NOT EXISTS $logs_table (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            appointment_id bigint(20) DEFAULT NULL,
+            type varchar(100) DEFAULT NULL,
+            recipient varchar(255) DEFAULT NULL,
+            subject longtext,
+            body longtext,
+            status varchar(50) DEFAULT 'pending',
+            error_message longtext,
+            context longtext,
+            attachments longtext,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_appointment (appointment_id),
+            INDEX idx_status (status)
+        ) $charset_collate;";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         
         foreach ($sql as $statement) {
@@ -97,6 +116,61 @@ class TS_Appointment_Database {
 
         // Initialiser les paramètres par défaut
         self::init_default_settings();
+    }
+
+    /**
+     * Insert a log entry into ts_appointment_logs.
+     * $data expects keys: appointment_id, type, recipient, subject, body, status, error_message, context(array), attachments(array)
+     */
+    public static function insert_log($data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ts_appointment_logs';
+        $insert = array(
+            'appointment_id' => isset($data['appointment_id']) ? $data['appointment_id'] : null,
+            'type' => isset($data['type']) ? $data['type'] : null,
+            'recipient' => isset($data['recipient']) ? $data['recipient'] : null,
+            'subject' => isset($data['subject']) ? $data['subject'] : null,
+            'body' => isset($data['body']) ? $data['body'] : null,
+            'status' => isset($data['status']) ? $data['status'] : 'pending',
+            'error_message' => isset($data['error_message']) ? $data['error_message'] : null,
+            'context' => isset($data['context']) ? wp_json_encode($data['context']) : null,
+            'attachments' => isset($data['attachments']) ? wp_json_encode($data['attachments']) : null,
+        );
+        $wpdb->insert($table, $insert);
+        return $wpdb->insert_id;
+    }
+
+    public static function get_logs($limit = 200, $offset = 0, $appointment_id = null, $status = null) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ts_appointment_logs';
+        $where = array();
+        if ($appointment_id) $where[] = $wpdb->prepare('appointment_id = %d', $appointment_id);
+        if ($status) $where[] = $wpdb->prepare('status = %s', $status);
+        $sql = "SELECT * FROM $table";
+        if (!empty($where)) $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= " ORDER BY created_at DESC LIMIT %d OFFSET %d";
+        return $wpdb->get_results($wpdb->prepare($sql, intval($limit), intval($offset)));
+    }
+
+    public static function get_log($id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ts_appointment_logs';
+        return $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $id));
+    }
+
+    public static function update_log($id, $data) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'ts_appointment_logs';
+        $update = array();
+        if (isset($data['status'])) $update['status'] = $data['status'];
+        if (isset($data['error_message'])) $update['error_message'] = $data['error_message'];
+        if (isset($data['subject'])) $update['subject'] = $data['subject'];
+        if (isset($data['body'])) $update['body'] = $data['body'];
+        if (isset($data['recipient'])) $update['recipient'] = $data['recipient'];
+        if (isset($data['context'])) $update['context'] = wp_json_encode($data['context']);
+        if (isset($data['attachments'])) $update['attachments'] = wp_json_encode($data['attachments']);
+        if (empty($update)) return false;
+        return $wpdb->update($table, $update, array('id' => $id));
     }
 
     public static function maybe_create_tables() {

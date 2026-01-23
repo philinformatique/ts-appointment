@@ -122,6 +122,20 @@ class TS_Appointment {
     }
 
     public function enqueue_frontend_assets() {
+        // Only load frontend assets on pages that contain the shortcodes to avoid slowing other pages.
+        $should_enqueue = false;
+        if (is_singular()) {
+            global $post;
+            if ($post && isset($post->post_content)) {
+                if (has_shortcode($post->post_content, 'ts_appointment_form') || has_shortcode($post->post_content, 'ts_appointment_calendar')) {
+                    $should_enqueue = true;
+                }
+            }
+        }
+        // Also allow forcing via filter
+        $should_enqueue = apply_filters('ts_appointment_force_enqueue_frontend', $should_enqueue);
+        if (!$should_enqueue) return;
+
         wp_enqueue_style('ts-appointment-frontend', TS_APPOINTMENT_URL . 'assets/css/frontend.css', array(), TS_APPOINTMENT_VERSION);
 
         $turnstile_enabled = (bool) get_option('ts_appointment_turnstile_enabled');
@@ -308,6 +322,15 @@ class TS_Appointment {
             'manage_options',
             'ts-appointment-emails',
             array('TS_Appointment_Admin', 'display_email_templates')
+        );
+
+        add_submenu_page(
+            'ts-appointment',
+            __('Email Logs', 'ts-appointment'),
+            __('Email Logs', 'ts-appointment'),
+            'manage_options',
+            'ts-appointment-email-logs',
+            array('TS_Appointment_Admin', 'display_email_logs')
         );
 
         add_submenu_page(

@@ -45,17 +45,37 @@ class TS_Appointment_Email {
             }
         }
 
-        // Use Mailgun if enabled, otherwise wp_mail. Fallback to wp_mail on failure.
+        // Create a log entry (pending)
+        $log_id = 0;
+        if (class_exists('TS_Appointment_Database')) {
+            $log_id = TS_Appointment_Database::insert_log(array(
+                'appointment_id' => $appointment->id ?? null,
+                'type' => 'client_new',
+                'recipient' => $appointment->client_email ?? null,
+                'subject' => $subject,
+                'body' => $message,
+                'status' => 'pending',
+                'context' => array('template' => 'client_new'),
+                'attachments' => $attachments,
+            ));
+        }
+
+        // Use Mailgun if enabled
         if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
-            // remove temp ics file
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
+
         ts_appointment_log('Using wp_mail for booking notification to ' . $appointment->client_email);
-        wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
-        // cleanup temp file
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
-        return true;
+        if ($sent) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
+            return true;
+        }
+        if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'failed', 'error_message' => 'wp_mail returned false'));
+        return false;
     }
 
     public static function send_confirmation($appointment) {
@@ -83,14 +103,34 @@ class TS_Appointment_Email {
             }
         }
 
+        $log_id = 0;
+        if (class_exists('TS_Appointment_Database')) {
+            $log_id = TS_Appointment_Database::insert_log(array(
+                'appointment_id' => $appointment->id ?? null,
+                'type' => 'client_confirmation',
+                'recipient' => $appointment->client_email ?? null,
+                'subject' => $subject,
+                'body' => $message,
+                'status' => 'pending',
+                'context' => array('template' => 'client_confirmation'),
+                'attachments' => $attachments,
+            ));
+        }
+
         if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
         ts_appointment_log('Using wp_mail for confirmation to ' . $appointment->client_email);
-        wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
-        return true;
+        if ($sent) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
+            return true;
+        }
+        if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'failed', 'error_message' => 'wp_mail returned false'));
+        return false;
     }
 
     public static function send_admin_notification($appointment) {
@@ -107,12 +147,32 @@ class TS_Appointment_Email {
             'Content-Type: text/html; charset=UTF-8',
         );
 
+        $log_id = 0;
+        if (class_exists('TS_Appointment_Database')) {
+            $log_id = TS_Appointment_Database::insert_log(array(
+                'appointment_id' => $appointment->id ?? null,
+                'type' => 'admin_new',
+                'recipient' => $admin_email,
+                'subject' => $subject,
+                'body' => $message,
+                'status' => 'pending',
+                'context' => array('template' => 'admin_new'),
+                'attachments' => array(),
+            ));
+        }
+
         if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($admin_email, $subject, $message, $headers, array())) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
         ts_appointment_log('Using wp_mail for admin notification to ' . $admin_email);
-        wp_mail($admin_email, $subject, $message, $headers);
-        return true;
+        $sent = wp_mail($admin_email, $subject, $message, $headers);
+        if ($sent) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
+            return true;
+        }
+        if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'failed', 'error_message' => 'wp_mail returned false'));
+        return false;
     }
 
     public static function send_cancellation($appointment, $reason = '') {
@@ -130,12 +190,32 @@ class TS_Appointment_Email {
             'From: ' . $business_name . ' <' . $business_email . '>',
         );
 
+        $log_id = 0;
+        if (class_exists('TS_Appointment_Database')) {
+            $log_id = TS_Appointment_Database::insert_log(array(
+                'appointment_id' => $appointment->id ?? null,
+                'type' => 'client_cancellation',
+                'recipient' => $appointment->client_email ?? null,
+                'subject' => $subject,
+                'body' => $message,
+                'status' => 'pending',
+                'context' => array('template' => 'client_cancellation', 'reason' => $reason),
+                'attachments' => array(),
+            ));
+        }
+
         if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, array())) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
         ts_appointment_log('Using wp_mail for cancellation to ' . $appointment->client_email);
-        wp_mail($appointment->client_email, $subject, $message, $headers);
-        return true;
+        $sent = wp_mail($appointment->client_email, $subject, $message, $headers);
+        if ($sent) {
+            if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
+            return true;
+        }
+        if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'failed', 'error_message' => 'wp_mail returned false'));
+        return false;
     }
 
     private static function get_booking_notification_template($appointment, $service, $business_name) {
