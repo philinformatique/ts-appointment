@@ -469,38 +469,43 @@
         function submitForm() {
             const formData = {
                 service_id: $serviceId.val(),
-                // Values from dynamic base schema
-                client_name: $('#client_name').val(),
-                client_email: $('#client_email').val(),
-                client_phone: $('#client_phone').val(),
                 appointment_type: $('input[name="appointment_type"]:checked').val(),
                 appointment_date: $appointmentDate.val(),
                 appointment_time: $appointmentTime.val(),
-                // client_address removed from form — not submitted
-                notes: $('#notes').val(),
-                extra: Object.assign({}, collectExtraFields(), collectBaseExtras())
+                extra: collectExtraFields()
             };
+
+            // Collect schema-driven client fields rendered inside #ts-client-info
+            try {
+                $('#ts-client-info').find('[name]').each(function() {
+                    const name = $(this).attr('name');
+                    if (!name) return;
+                    // Skip extra[...] inputs (they are handled in extra)
+                    if (name.indexOf('extra[') === 0) return;
+
+                    // For checkboxes, use checked state
+                    if ($(this).is(':checkbox')) {
+                        formData[name] = $(this).is(':checked') ? $(this).val() || '1' : '';
+                    } else {
+                        formData[name] = $(this).val();
+                    }
+                });
+            } catch (e) {}
 
             if (turnstileEnabled && (!turnstileToken || !turnstileToken.length)) {
                 showMessage(__('Merci de valider le contrôle anti-robot.'), 'error');
                 return;
             }
 
-            // client_address geocoding not required (field removed)
-
             if (turnstileEnabled) {
                 formData.turnstile_token = turnstileToken;
             }
 
-            // Validation
-            if (!formData.service_id || !formData.client_name || !formData.client_email || 
-                !formData.client_phone || !formData.appointment_type || 
-                !formData.appointment_date || !formData.appointment_time) {
+            // Validation: ensure minimal required fields are present
+            if (!formData.service_id || !formData.appointment_type || !formData.appointment_date || !formData.appointment_time) {
                 showMessage(__('Veuillez remplir tous les champs obligatoires'), 'error');
                 return;
             }
-
-            // Required extras are enforced by HTML required attributes within shown container
 
             // Envoyer la requête
             const restUrl = tsAppointment.restUrl;

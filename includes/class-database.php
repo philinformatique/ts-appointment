@@ -48,14 +48,10 @@ class TS_Appointment_Database {
         $sql[] = "CREATE TABLE IF NOT EXISTS $appointments_table (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             service_id bigint(20) NOT NULL,
-            client_name varchar(255) NOT NULL,
-            client_email varchar(255) NOT NULL,
-            client_phone varchar(20) NOT NULL,
             appointment_type varchar(100) NOT NULL,
             appointment_date date NOT NULL,
             appointment_time time NOT NULL,
-            client_address longtext,
-            notes longtext,
+            client_data longtext DEFAULT NULL,
             status enum('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
             google_calendar_id varchar(255),
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -63,8 +59,7 @@ class TS_Appointment_Database {
             PRIMARY KEY (id),
             FOREIGN KEY (service_id) REFERENCES $services_table (id) ON DELETE CASCADE,
             INDEX idx_date (appointment_date),
-            INDEX idx_status (status),
-            INDEX idx_email (client_email)
+            INDEX idx_status (status)
         ) $charset_collate;";
 
         // Table des paramètres

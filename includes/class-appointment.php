@@ -17,25 +17,53 @@ class TS_Appointment_Manager {
         }
 
         // Hook avant création
-        do_action('ts_appointment_before_book', $appointment_data);
+        do_action('ts_appointment_before_book', $data);
 
-        // Insérer le rendez-vous
+        // Insérer le rendez-vous — construire dynamiquement depuis form_schema (éviter hardcoded fields)
         $appointment_data = array(
             'service_id' => intval($data['service_id']),
-            'client_name' => sanitize_text_field($data['client_name']),
-            'client_email' => sanitize_email($data['client_email']),
-            'client_phone' => sanitize_text_field($data['client_phone']),
             'appointment_type' => sanitize_text_field($data['appointment_type']),
             'appointment_date' => sanitize_text_field($data['appointment_date']),
             'appointment_time' => sanitize_text_field($data['appointment_time']),
-            'notes' => isset($data['notes']) ? sanitize_textarea_field($data['notes']) : '',
             'status' => 'pending',
         );
 
-        // Incorporer les champs supplémentaires dans les notes
-        if (!empty($data['extra']) && is_array($data['extra'])) {
+        // Map schema fields into appointment columns when possible (client_name, client_email, client_phone, client_address, notes)
+        $form_schema = isset($form_schema) && is_array($form_schema) ? $form_schema : json_decode(get_option('ts_appointment_form_schema'), true);
+        $mapped_cols = array('client_name','client_email','client_phone','client_address','notes');
+        $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
+        $used_keys = array();
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $k = isset($f['key']) ? $f['key'] : '';
+                if (!$k) continue;
+                if (in_array($k, $mapped_cols, true)) {
+                    $val = null;
+                    if (isset($data[$k])) $val = $data[$k];
+                    elseif (isset($extra[$k])) $val = $extra[$k];
+
+                    if ($val !== null) {
+                        if ($k === 'notes') {
+                            $appointment_data['notes'] = sanitize_textarea_field($val);
+                        } elseif ($k === 'client_email') {
+                            $appointment_data['client_email'] = sanitize_email($val);
+                        } else {
+                            $appointment_data[$k] = sanitize_text_field($val);
+                        }
+                        $used_keys[] = $k;
+                    }
+                }
+            }
+        }
+
+        // Ensure notes key exists
+        if (!isset($appointment_data['notes'])) $appointment_data['notes'] = '';
+
+        // Incorporer les champs supplémentaires dans les notes (sauf ceux mappés dans appointment columns)
+        if (!empty($extra) && is_array($extra)) {
             $notes_extra = "\n\n" . __('Champs supplémentaires', 'ts-appointment') . ":\n";
-            foreach ($data['extra'] as $k => $v) {
+            foreach ($extra as $k => $v) {
+                if (in_array($k, $used_keys, true)) continue; // already mapped to column
                 if ($v === '' || $v === null) continue;
                 $label = ucfirst(str_replace('_',' ', sanitize_text_field($k)));
                 $notes_extra .= '- ' . $label . ': ' . sanitize_text_field(is_array($v) ? implode(', ', $v) : $v) . "\n";
@@ -94,17 +122,26 @@ class TS_Appointment_Manager {
             }
         }
 
-        // Vérifier les champs obligatoires
-        $required = array('service_id', 'client_name', 'client_email', 'client_phone', 'appointment_type', 'appointment_date', 'appointment_time');
-        
+        // Vérifier les champs obligatoires minimaux (service, lieu, date, heure)
+        $required = array('service_id', 'appointment_type', 'appointment_date', 'appointment_time');
         foreach ($required as $field) {
             if (empty($data[$field])) {
                 return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $field));
             }
         }
 
-        // Vérifier l'email
-        if (!is_email($data['client_email'])) {
+        // Vérifier l'email en utilisant la clé du formulaire (définie dans form_schema)
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        $email_key = 'client_email';
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $fk = isset($f['key']) ? $f['key'] : '';
+                $ft = isset($f['type']) ? $f['type'] : '';
+                if ($ft === 'email') { $email_key = $fk; break; }
+            }
+        }
+        $email_val = isset($data[$email_key]) ? $data[$email_key] : (isset($data['extra'][$email_key]) ? $data['extra'][$email_key] : '');
+        if (!is_email($email_val)) {
             return array('valid' => false, 'message' => __('Email invalide', 'ts-appointment'));
         }
 
@@ -136,34 +173,58 @@ class TS_Appointment_Manager {
             foreach ($selected['fields'] as $f) {
                 if (!empty($f['required'])) {
                     $k = isset($f['key']) ? $f['key'] : '';
-                    if ($k && (!isset($extra[$k]) || $extra[$k] === '')) {
-                        return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $f['label'] ?? $k));
+                    if ($k) {
+                        // Consider value present if found in extra or as top-level param
+                        $val = null;
+                        if (isset($extra[$k])) $val = $extra[$k];
+                        elseif (isset($data[$k])) $val = $data[$k];
+
+                        $filled = false;
+                        if (is_array($val)) {
+                            // array considered filled if any non-empty element
+                            foreach ($val as $vv) { if ($vv !== '' && $vv !== null) { $filled = true; break; } }
+                        } else {
+                            $filled = !(is_null($val) || (is_string($val) && trim($val) === ''));
+                        }
+
+                        if (!$filled) {
+                            return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $f['label'] ?? $k));
+                        }
                     }
                 }
             }
         }
 
-        // Champs requis du formulaire de base (hors champs core) -> vérifier dans extra
+        // Validate required fields from the form schema (uses DB-driven schema, not hardcoded keys)
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
         if (is_array($form_schema)) {
-            $core = array('client_name','client_email','client_phone','notes');
             foreach ($form_schema as $f) {
-                if (!empty($f['required'])) {
-                    $k = isset($f['key']) ? $f['key'] : '';
-                    if ($k && !in_array($k, $core, true)) {
-                        // If field has conditional visibility by location, and current appointment_type
-                        // is not listed, skip required validation for this field.
-                        $visible_locations = isset($f['visible_locations']) && is_array($f['visible_locations']) ? $f['visible_locations'] : array();
-                        if (!empty($visible_locations) && !in_array($data['appointment_type'], $visible_locations, true)) {
-                            // Not applicable for this selected location -> skip requirement
-                            continue;
-                        }
+                if (empty($f['required'])) continue;
+                $k = isset($f['key']) ? $f['key'] : '';
+                if (empty($k)) continue;
 
-                        if (!isset($extra[$k]) || $extra[$k] === '') {
-                            return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $f['label'] ?? $k));
-                        }
-                    }
+                // If field has conditional visibility by location, and current appointment_type
+                // is not listed, skip required validation for this field.
+                $visible_locations = isset($f['visible_locations']) && is_array($f['visible_locations']) ? $f['visible_locations'] : array();
+                if (!empty($visible_locations) && !in_array($data['appointment_type'], $visible_locations, true)) {
+                    continue;
+                }
+
+                // Determine value: prefer extra[...] then top-level field
+                $val = null;
+                if (isset($extra[$k])) $val = $extra[$k];
+                elseif (isset($data[$k])) $val = $data[$k];
+
+                $filled = false;
+                if (is_array($val)) {
+                    foreach ($val as $vv) { if ($vv !== '' && $vv !== null) { $filled = true; break; } }
+                } else {
+                    $filled = !(is_null($val) || (is_string($val) && trim($val) === ''));
+                }
+
+                if (!$filled) {
+                    return array('valid' => false, 'message' => sprintf(__('Le champ %s est obligatoire', 'ts-appointment'), $f['label'] ?? $k));
                 }
             }
         }
