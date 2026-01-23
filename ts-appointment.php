@@ -64,7 +64,17 @@ class TS_Appointment {
     public static function handle_public_cancel() {
         $id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;
         $nonce = isset($_REQUEST['_wpnonce']) ? sanitize_text_field($_REQUEST['_wpnonce']) : '';
-        if (!$id || !wp_verify_nonce($nonce, 'ts_appointment_cancel_' . $id)) {
+        $ct = isset($_REQUEST['ct']) ? sanitize_text_field($_REQUEST['ct']) : '';
+
+        $verified = false;
+        if ($id && $nonce && wp_verify_nonce($nonce, 'ts_appointment_cancel_' . $id)) {
+            $verified = true;
+        } elseif ($id && $ct && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_cancel_token($id, $ct)) {
+            // Accept persistent cancel token as fallback when nonce expired
+            $verified = true;
+        }
+
+        if (!$id || !$verified) {
             wp_die(__('Lien d\'annulation invalide ou expiré.', 'ts-appointment'));
         }
         $ok = TS_Appointment_Manager::cancel_appointment($id, __('Annulation par le client via email', 'ts-appointment'));

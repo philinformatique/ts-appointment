@@ -24,6 +24,7 @@ class TS_Appointment_Email {
             'business_name' => $business_name,
             'business_address' => $business_address,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
 
         $message = self::render_email_template_body('client_new', array(
@@ -36,6 +37,7 @@ class TS_Appointment_Email {
             'business_address' => $business_address,
             'appointment_id' => $appointment->id,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
         
         $headers = array(
@@ -82,6 +84,7 @@ class TS_Appointment_Email {
             'business_name' => $business_name,
             'business_address' => $business_address,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
 
         $message = self::render_email_template_body('client_confirmation', array(
@@ -94,6 +97,7 @@ class TS_Appointment_Email {
             'business_address' => $business_address,
             'appointment_id' => $appointment->id,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
         
         $headers = array(
@@ -136,6 +140,7 @@ class TS_Appointment_Email {
             'business_name' => $business_name,
             'business_address' => $business_address,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
 
         $message = self::render_email_template_body('admin_new', array(
@@ -147,6 +152,7 @@ class TS_Appointment_Email {
             'business_name' => $business_name,
             'business_address' => $business_address,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
         
         $headers = array(
@@ -188,6 +194,7 @@ class TS_Appointment_Email {
             'business_address' => $business_address,
             'reason' => $reason,
             'client_address' => $appointment->client_address,
+            'notes' => isset($appointment->notes) ? $appointment->notes : '',
         ));
         
         $headers = array(
@@ -225,8 +232,7 @@ class TS_Appointment_Email {
         // Build cancel button if appointment id is present
         $cancel_button_html = '';
         if (!empty($appointment->id)) {
-            $nonce = wp_create_nonce('ts_appointment_cancel_' . intval($appointment->id));
-            $cancel_url = admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . intval($appointment->id) . '&_wpnonce=' . $nonce);
+            $cancel_url = self::get_cancel_url($appointment);
             $cancel_button_html = '<p style="text-align:center;margin:24px 0"><a href="' . esc_url($cancel_url) . '" style="background:' . esc_attr($color_primary) . ';color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block">' . esc_html__('Annuler le rendez-vous', 'ts-appointment') . '</a></p>';
         }
 
@@ -263,8 +269,7 @@ class TS_Appointment_Email {
         // Build cancel button if appointment id is present
         $cancel_button_html = '';
         if (!empty($appointment->id)) {
-            $nonce = wp_create_nonce('ts_appointment_cancel_' . intval($appointment->id));
-            $cancel_url = admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . intval($appointment->id) . '&_wpnonce=' . $nonce);
+            $cancel_url = self::get_cancel_url($appointment);
             $cancel_button_html = '<p style="text-align:center;margin:18px 0"><a href="' . esc_url($cancel_url) . '" style="background:' . esc_attr($color_primary) . ';color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block">' . esc_html__('Annuler le rendez-vous', 'ts-appointment') . '</a></p>';
         }
 
@@ -432,8 +437,7 @@ class TS_Appointment_Email {
             // Special placeholders: cancel URL/button (allow HTML for button)
             if (!empty($context['appointment_id'])) {
                 $appt_id = intval($context['appointment_id']);
-                $nonce = wp_create_nonce('ts_appointment_cancel_' . $appt_id);
-                $cancel_url = admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . $appt_id . '&_wpnonce=' . $nonce);
+                $cancel_url = self::get_cancel_url($appt_id);
                 $body = str_replace('{cancel_url}', esc_url($cancel_url), $body);
                 $btn_text = __('Annuler le rendez-vous', 'ts-appointment');
                 $button_html = '<a href="' . esc_url($cancel_url) . '" style="display:inline-block;background:#c0392b;color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none;">' . esc_html($btn_text) . '</a>';
@@ -535,6 +539,73 @@ class TS_Appointment_Email {
         } catch (Exception $e) {
             return '';
         }
+    }
+
+    /**
+     * Generate a stable cancel token for an appointment. This token is derived
+     * from the appointment ID and its creation timestamp using a site secret,
+     * and can be used as a long-lived alternative to WP nonces in email links.
+     */
+    public static function generate_cancel_token_for_appointment($appointment_or_id) {
+        // Accept either an appointment object or an ID
+        if (is_numeric($appointment_or_id)) {
+            $appt = TS_Appointment_Database::get_appointment(intval($appointment_or_id));
+        } else {
+            $appt = $appointment_or_id;
+        }
+        if (empty($appt) || empty($appt->id)) return '';
+        $created = isset($appt->created_at) ? $appt->created_at : '';
+        $id = intval($appt->id);
+        // Use WordPress salts when available to derive the token
+        $secret = '';
+        if (defined('AUTH_KEY')) $secret .= AUTH_KEY;
+        if (defined('NONCE_SALT')) $secret .= NONCE_SALT;
+        if (empty($secret)) $secret = get_option('siteurl', '');
+        return hash_hmac('sha256', $id . '|' . $created, $secret);
+    }
+
+    /** Validate a cancel token for the given appointment ID */
+    public static function validate_cancel_token($appointment_id, $token) {
+        if (empty($appointment_id) || empty($token)) return false;
+        $expected = self::generate_cancel_token_for_appointment(intval($appointment_id));
+        if (empty($expected)) return false;
+        if (!hash_equals($expected, $token)) return false;
+
+        // Ensure token is only valid up to the appointment start time
+        $appt = TS_Appointment_Database::get_appointment(intval($appointment_id));
+        if (!$appt) return false;
+        try {
+            $tz_string = get_option('ts_appointment_timezone') ?: (get_option('timezone_string') ?: 'UTC');
+            $tz = new DateTimeZone($tz_string);
+            $appt_dt = DateTime::createFromFormat('Y-m-d H:i', trim($appt->appointment_date . ' ' . $appt->appointment_time), $tz);
+            if (!$appt_dt) {
+                // fallback: try generic constructor
+                $appt_dt = new DateTime($appt->appointment_date . ' ' . $appt->appointment_time, $tz);
+            }
+            $now = new DateTime('now', $tz);
+            // Token valid only if current time is strictly before appointment start
+            if ($now >= $appt_dt) return false;
+        } catch (Exception $e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get a canonical cancel URL for an appointment (includes nonce and persistent token).
+     */
+    public static function get_cancel_url($appointment_or_id) {
+        if (is_numeric($appointment_or_id)) {
+            $appt = TS_Appointment_Database::get_appointment(intval($appointment_or_id));
+        } else {
+            $appt = $appointment_or_id;
+        }
+        if (empty($appt) || empty($appt->id)) return '';
+        $id = intval($appt->id);
+        $nonce = wp_create_nonce('ts_appointment_cancel_' . $id);
+        $token = self::generate_cancel_token_for_appointment($appt);
+        return admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . $id . '&_wpnonce=' . $nonce . '&ct=' . rawurlencode($token));
     }
 
     private static function escape_ical_text($text) {
