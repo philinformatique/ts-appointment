@@ -28,7 +28,6 @@ class TS_Appointment_Manager {
             'appointment_type' => sanitize_text_field($data['appointment_type']),
             'appointment_date' => sanitize_text_field($data['appointment_date']),
             'appointment_time' => sanitize_text_field($data['appointment_time']),
-            'client_address' => isset($data['client_address']) ? sanitize_textarea_field($data['client_address']) : '',
             'notes' => isset($data['notes']) ? sanitize_textarea_field($data['notes']) : '',
             'status' => 'pending',
         );
@@ -148,7 +147,8 @@ class TS_Appointment_Manager {
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
         if (is_array($form_schema)) {
-            $core = array('client_name','client_email','client_phone','notes');
+            // Treat legacy client_address as core/ignored (field removed from form)
+            $core = array('client_name','client_email','client_phone','notes','client_address');
             foreach ($form_schema as $f) {
                 if (!empty($f['required'])) {
                     $k = isset($f['key']) ? $f['key'] : '';

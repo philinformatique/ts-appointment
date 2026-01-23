@@ -56,11 +56,14 @@
             // When a location is selected, reveal extras and date
             $(document).on('change.reveal', 'input[name="appointment_type"]', function(){
                 const key = $(this).val();
-                $locationExtras.hide();
+                // Hide all per-location extras and disable their inputs to prevent validation
+                $locationExtras.hide().find('textarea, input, select').each(function() { try { $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
                 const $target = $('#loc-extra-' + key);
                 if ($target.length) {
                     $target.show();
-                    $target.find('[required]').prop('required', true);
+                    // Re-enable inputs inside the shown container and restore required flags
+                    $target.find('textarea, input, select').each(function() { try { $(this).prop('disabled', false); } catch (e) {} });
+                    $target.find('[required]').prop('required', true).prop('disabled', false);
                     $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
                 $appointmentDate.closest('.form-row').show();
@@ -203,11 +206,13 @@
         // Afficher/masquer les champs supplémentaires selon le lieu
         $(document).on('change', 'input[name="appointment_type"]', function() {
             const key = $(this).val();
-            $locationExtras.hide().find('textarea, input, select').prop('required', false);
+            // Hide and disable all per-location extras to avoid validation of hidden controls
+            $locationExtras.hide().find('textarea, input, select').each(function() { try { $(this).prop('required', false).prop('disabled', true); } catch (e) {} });
             const $target = $('#loc-extra-' + key);
             if ($target.length) {
                 $target.show();
-                $target.find('[required]').prop('required', true);
+                $target.find('textarea, input, select').each(function() { try { $(this).prop('disabled', false); } catch (e) {} });
+                $target.find('[required]').prop('required', true).prop('disabled', false);
             }
             updatePriceDisplay();
             updateDateTimeLabels();
