@@ -123,11 +123,12 @@ class TS_Appointment_Email {
         }
 
         $log_id = 0;
+        $client_email = self::get_client_value($appointment, 'client_email');
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
                 'type' => 'client_confirmation',
-                'recipient' => $appointment->client_email ?? null,
+                'recipient' => $client_email ?: null,
                 'subject' => $subject,
                 'body' => $message,
                 'status' => 'pending',
@@ -136,13 +137,13 @@ class TS_Appointment_Email {
             ));
         }
 
-        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($appointment->client_email, $subject, $message, $headers, $attachments)) {
+        if (!empty(get_option('ts_appointment_mailgun_enabled')) && self::send_via_mailgun($client_email, $subject, $message, $headers, $attachments)) {
             if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
             return true;
         }
-        ts_appointment_log('Using wp_mail for confirmation to ' . $appointment->client_email);
-        $sent = wp_mail($appointment->client_email, $subject, $message, $headers, $attachments);
+        ts_appointment_log('Using wp_mail for confirmation to ' . $client_email);
+        $sent = wp_mail($client_email, $subject, $message, $headers, $attachments);
         if (!empty($ics_path) && file_exists($ics_path)) @unlink($ics_path);
         if ($sent) {
             if ($log_id) TS_Appointment_Database::update_log($log_id, array('status' => 'sent'));
