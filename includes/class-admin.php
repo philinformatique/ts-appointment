@@ -675,6 +675,7 @@ class TS_Appointment_Admin {
             'google_calendar_id',
             'google_client_id',
             'google_client_secret',
+            'google_notify_on_confirmation',
             'google_send_updates',
             'google_email_reminders',
             // iCalendar (.ics) options
@@ -718,7 +719,7 @@ class TS_Appointment_Admin {
         }
 
         // Gestion explicite des cases à cocher pour éviter de conserver un état activé quand décochées
-            $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled', 'mailgun_enabled', 'mailgun_global_enabled', 'ics_enabled', 'ics_attach');
+            $checkboxes = array('enable_reminders', 'google_calendar_enabled', 'turnstile_enabled', 'debug_enabled', 'mailgun_enabled', 'mailgun_global_enabled', 'ics_enabled', 'ics_attach', 'google_notify_on_confirmation');
         foreach ($checkboxes as $checkbox) {
             if (!isset($_POST[$checkbox])) {
                 update_option('ts_appointment_' . $checkbox, 0);

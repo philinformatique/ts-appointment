@@ -227,6 +227,14 @@ class TS_Appointment_Google_Calendar {
 
         // Respect sendUpdates option: none|externalOnly|all
         $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        // Option: notify only when confirmed
+        $notifyOnlyOnConfirm = get_option('ts_appointment_google_notify_on_confirmation', 0);
+        if ($notifyOnlyOnConfirm) {
+            // If appointment not confirmed, disable sendUpdates
+            if (!$confirmed) {
+                $sendUpdates = 'none';
+            }
+        }
         $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events';
         if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
             $url .= '?sendUpdates=' . rawurlencode($sendUpdates);
@@ -322,6 +330,12 @@ class TS_Appointment_Google_Calendar {
 
         // Respect sendUpdates option for updates to avoid notifying attendees unnecessarily
         $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        $notifyOnlyOnConfirm = get_option('ts_appointment_google_notify_on_confirmation', 0);
+        if ($notifyOnlyOnConfirm) {
+            if (!$is_confirmed) {
+                $sendUpdates = 'none';
+            }
+        }
         $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id;
         if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
             $url .= '?sendUpdates=' . rawurlencode($sendUpdates);
@@ -364,6 +378,14 @@ class TS_Appointment_Google_Calendar {
 
         // Respect sendUpdates option for deletes to avoid notifying attendees if configured
         $sendUpdates = get_option('ts_appointment_google_send_updates', 'none');
+        $notifyOnlyOnConfirm = get_option('ts_appointment_google_notify_on_confirmation', 0);
+        if ($notifyOnlyOnConfirm) {
+            // Only send updates on delete if the appointment was confirmed
+            $was_confirmed = isset($appointment->status) ? ($appointment->status === 'confirmed') : false;
+            if (!$was_confirmed) {
+                $sendUpdates = 'none';
+            }
+        }
         $url = 'https://www.googleapis.com/calendar/v3/calendars/' . $this->calendar_id . '/events/' . $appointment->google_calendar_id;
         if (in_array($sendUpdates, array('none','externalOnly','all'), true)) {
             $url .= '?sendUpdates=' . rawurlencode($sendUpdates);

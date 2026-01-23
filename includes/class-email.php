@@ -579,14 +579,15 @@ class TS_Appointment_Email {
                 'html' => $html,
             );
 
-            // prepare curl files
+            // prepare curl files — use indexed keys attachment[0], attachment[1], ... for compatibility
             foreach ($attachments as $i => $file) {
                 if (is_string($file) && file_exists($file)) {
+                    $key = 'attachment[' . intval($i) . ']';
                     if (function_exists('curl_file_create')) {
-                        $post['attachment'][] = curl_file_create($file);
+                        $post[$key] = curl_file_create($file);
                     } else {
                         // Older PHP (<5.5) fallback (may be disabled on some hosts)
-                        $post['attachment'][] = '@' . $file;
+                        $post[$key] = '@' . $file;
                     }
                 }
             }

@@ -233,6 +233,15 @@
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row">
+                        <label for="google_notify_on_confirmation"><?php echo esc_html__('Notifier seulement à la confirmation', 'ts-appointment'); ?></label>
+                    </th>
+                    <td>
+                        <input type="checkbox" id="google_notify_on_confirmation" name="google_notify_on_confirmation" value="1" <?php checked(get_option('ts_appointment_google_notify_on_confirmation'), 1); ?>>
+                        <p class="description"><?php echo esc_html__('Si activé, les notifications (sendUpdates) vers les invités Google ne seront envoyées que lorsque le rendez-vous est confirmé.', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row"><label for="google_email_reminders"><?php echo esc_html__('Rappels email dans Google', 'ts-appointment'); ?></label></th>
                     <td>
                         <label><input type="checkbox" id="google_email_reminders" name="google_email_reminders" value="1" <?php checked(get_option('ts_appointment_google_email_reminders'), 0, false); ?>> <?php echo esc_html__('Autoriser les rappels par email depuis l\'événement Google (par défaut désactivé)', 'ts-appointment'); ?></label>
