@@ -81,13 +81,10 @@
             const _origSelectTimeSlot = window.selectTimeSlot || null;
             // When a slot is selected reveal client info then actions
             $(document).on('tsSlotSelected.reveal', function(e, $btn){
-                    // Reveal client info container
-                    $('#ts-client-info').show();
-                    // Only show client fields relevant to the selected location
-                    try {
-                        const locKey = $('input[name="appointment_type"]:checked').val();
-                        toggleClientInfoVisibility(locKey);
-                    } catch (e) {}
+                // Reveal client info container
+                $('#ts-client-info').show();
+                // Ensure child groups (previously hidden) are visible as well
+                $('#ts-client-info').find('.form-group, .form-row').show();
                 // Focus first visible input for convenience
                 try { $('#ts-client-info').find('input, textarea, select').filter(':visible').first().focus(); } catch (e) {}
                 // Reveal price and submit actions
@@ -297,6 +294,11 @@
             $appointmentTime.val($btn.data('time'));
             // Notify progressive reveal logic that a slot was selected
             try { $(document).trigger('tsSlotSelected.reveal', [$btn]); } catch (e) {}
+            // Ensure fields conditional on the selected location are properly filtered
+            try {
+                const locKey = $('input[name="appointment_type"]:checked').val();
+                if (locKey) toggleClientInfoVisibility(locKey);
+            } catch (e) {}
             updateDateTimeLabels();
         }
 
