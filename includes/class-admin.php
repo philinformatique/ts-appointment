@@ -20,55 +20,48 @@ class TS_Appointment_Admin {
     }
 
     public static function display_appointments() {
-        // Handle appointment edits from admin table
+        // Handle save edits from the appointments edit form
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce'])) {
-            if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_appointments')) {
-                if (!empty($_POST['action_type']) && $_POST['action_type'] === 'edit' && !empty($_POST['appointment_id'])) {
+            if (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_edit')) {
+                if (!empty($_POST['save_appointment']) && !empty($_POST['appointment_id'])) {
                     $appt_id = intval($_POST['appointment_id']);
                     $appt = TS_Appointment_Database::get_appointment($appt_id);
                     if ($appt) {
-                        $update = array();
-
-                        // Allow editing basic appointment fields
-                        if (isset($_POST['appointment_date'])) {
-                            $update['appointment_date'] = sanitize_text_field($_POST['appointment_date']);
-                        }
-                        if (isset($_POST['appointment_time'])) {
-                            $update['appointment_time'] = sanitize_text_field($_POST['appointment_time']);
-                        }
-                        if (isset($_POST['appointment_type'])) {
-                            $update['appointment_type'] = sanitize_text_field($_POST['appointment_type']);
-                        }
-                        if (isset($_POST['status'])) {
-                            $update['status'] = sanitize_text_field($_POST['status']);
-                        }
-
-                        // Merge client fields into client_data JSON
                         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
                         $client_data = array();
-                        if (!empty($appt->client_data)) {
-                            $decoded = json_decode($appt->client_data, true);
-                            if (is_array($decoded)) $client_data = $decoded;
-                        }
-
                         if (is_array($form_schema)) {
                             foreach ($form_schema as $f) {
                                 if (empty($f['key'])) continue;
                                 $k = $f['key'];
                                 if (isset($_POST[$k])) {
-                                    // Allow HTML for textarea-like fields
-                                    if (in_array($f['type'] ?? 'text', array('textarea'), true)) {
-                                        $client_data[$k] = wp_kses_post(wp_unslash($_POST[$k]));
-                                    } else {
-                                        $client_data[$k] = sanitize_text_field($_POST[$k]);
+                                    // sanitize based on type
+                                    $val = $_POST[$k];
+                                    switch ($f['type'] ?? 'text') {
+                                        case 'email':
+                                            $client_data[$k] = sanitize_email($val);
+                                            break;
+                                        case 'textarea':
+                                            $client_data[$k] = wp_kses_post(wp_unslash($val));
+                                            break;
+                                        case 'number':
+                                            $client_data[$k] = sanitize_text_field($val);
+                                            break;
+                                        default:
+                                            $client_data[$k] = sanitize_text_field($val);
                                     }
                                 }
                             }
                         }
 
-                        if (!empty($client_data)) {
-                            $update['client_data'] = wp_json_encode($client_data);
-                        }
+                        $update = array();
+                        // Persist client_data JSON
+                        $update['client_data'] = wp_json_encode($client_data);
+
+                        // Allow editing basic appointment fields
+                        if (isset($_POST['appointment_date'])) $update['appointment_date'] = sanitize_text_field($_POST['appointment_date']);
+                        if (isset($_POST['appointment_time'])) $update['appointment_time'] = sanitize_text_field($_POST['appointment_time']);
+                        if (isset($_POST['appointment_type'])) $update['appointment_type'] = sanitize_text_field($_POST['appointment_type']);
+                        if (isset($_POST['status'])) $update['status'] = sanitize_text_field($_POST['status']);
 
                         if (!empty($update)) {
                             TS_Appointment_Database::update_appointment($appt_id, $update);
@@ -80,6 +73,21 @@ class TS_Appointment_Admin {
         }
 
         $appointments = TS_Appointment_Database::get_appointments();
+
+        // Provide form schema and edit target if requested
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        $edit_appointment = null;
+        if (!empty($_GET['edit_id'])) {
+            $edit_id = intval($_GET['edit_id']);
+            $edit_appointment = TS_Appointment_Database::get_appointment($edit_id);
+            // decode client_data for prefill
+            if ($edit_appointment && !empty($edit_appointment->client_data)) {
+                $decoded = json_decode($edit_appointment->client_data, true);
+                if (is_array($decoded)) $edit_appointment->client_data = $decoded;
+            } else {
+                $edit_appointment->client_data = array();
+            }
+        }
 
         include TS_APPOINTMENT_DIR . 'templates/admin-appointments.php';
     }
