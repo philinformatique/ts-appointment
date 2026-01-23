@@ -517,6 +517,22 @@
                 url: restUrl + 'appointment/book',
                 type: 'POST',
                 contentType: 'application/json',
+                // Debug: when debug flag is set, log the form payload and disabled fields
+                beforeSend: function(xhr) {
+                    if (restNonce) {
+                        xhr.setRequestHeader('X-WP-Nonce', restNonce);
+                    }
+                    if (typeof tsAppointment !== 'undefined' && tsAppointment.debug) {
+                        try {
+                            console.group('TS Appointment debug: submitting formData');
+                            console.log('formData', formData);
+                            var disabled = [];
+                            $('#ts-appointment-form').find('input,select,textarea').each(function() { if ($(this).is(':disabled')) disabled.push({name: $(this).attr('name'), type: this.tagName, id: $(this).attr('id')}); });
+                            console.log('disabled inputs', disabled);
+                            console.groupEnd();
+                        } catch (e) {}
+                    }
+                },
                 data: JSON.stringify(formData),
                 beforeSend: function(xhr) {
                     if (restNonce) {
