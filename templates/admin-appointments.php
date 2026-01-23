@@ -96,13 +96,22 @@
                             $client_data = array();
                             if (!empty($appointment->client_data)) {
                                 $decoded = json_decode($appointment->client_data, true);
-                                if (is_array($decoded)) $client_data = $decoded;
+                                if (is_array($decoded)) {
+                                    $client_data = $decoded;
+                                } else {
+                                    // If JSON decode fails, try treating it as a plain value
+                                    $client_data = array('_raw' => $appointment->client_data);
+                                }
+                            }
+                            // Debug: show what's in client_data if empty
+                            if (empty($client_data) && !empty($appointment->client_data)) {
+                                echo '<!-- DEBUG: client_data="' . esc_html($appointment->client_data) . '" -->';
                             }
                             // Render values from schema fields
                             if (!empty($form_schema) && is_array($form_schema)) {
                                 foreach ($form_schema as $field) {
                                     $key = $field['key'] ?? '';
-                                    $val = $client_data[$key] ?? '';
+                                    $val = isset($client_data[$key]) ? $client_data[$key] : '';
                                     echo '<td>' . esc_html($val) . '</td>';
                                 }
                             }

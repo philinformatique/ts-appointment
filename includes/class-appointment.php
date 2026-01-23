@@ -28,10 +28,27 @@ class TS_Appointment_Manager {
             'status' => 'pending',
         );
 
-        // Map schema fields into appointment columns when possible (client_name, client_email, client_phone, client_address, notes)
+        // Build client_data JSON from schema fields
+        $client_data_json = array();
         $form_schema = isset($form_schema) && is_array($form_schema) ? $form_schema : json_decode(get_option('ts_appointment_form_schema'), true);
-        $mapped_cols = array('client_name','client_email','client_phone','client_address','notes');
         $extra = isset($data['extra']) && is_array($data['extra']) ? $data['extra'] : array();
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $k = isset($f['key']) ? $f['key'] : '';
+                if (!$k) continue;
+                $val = null;
+                if (isset($data[$k])) $val = $data[$k];
+                elseif (isset($extra[$k])) $val = $extra[$k];
+                if ($val !== null) {
+                    $client_data_json[$k] = $val;
+                }
+            }
+        }
+        // Store the complete client_data as JSON
+        $appointment_data['client_data'] = wp_json_encode($client_data_json);
+
+        // Map schema fields into appointment columns when possible (client_name, client_email, client_phone, client_address, notes)
+        $mapped_cols = array('client_name','client_email','client_phone','client_address','notes');
         $used_keys = array();
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
