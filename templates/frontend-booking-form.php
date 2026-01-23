@@ -167,6 +167,8 @@
                 // Render fields in two-column rows when possible
                 $buffer = array();
                 foreach ($form_schema as $field) {
+                    // Skip legacy hardcoded client_address field (handled elsewhere or removed)
+                    if (isset($field['key']) && $field['key'] === 'client_address') continue;
                     $buffer[] = $field;
                     if (count($buffer) === 2) {
                         echo '<div class="form-row">';
