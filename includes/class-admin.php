@@ -20,33 +20,6 @@ class TS_Appointment_Admin {
     }
 
     public static function display_appointments() {
-        // If editing a single appointment, handle it here
-        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : '';
-        if ($action === 'edit_appointment' && !empty($_GET['id'])) {
-            $id = intval($_GET['id']);
-            $appointment = TS_Appointment_Database::get_appointment($id);
-            if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ts_appointment_nonce'])) {
-                if (!current_user_can('manage_options')) {
-                    echo '<div class="notice notice-error"><p>' . __('Permission refusée.', 'ts-appointment') . '</p></div>';
-                } elseif (wp_verify_nonce($_POST['ts_appointment_nonce'], 'ts_appointment_edit_appointment')) {
-                    $fields = isset($_POST['fields']) && is_array($_POST['fields']) ? array_map('sanitize_text_field', wp_unslash($_POST['fields'])) : array();
-                    $client_data = $fields;
-                    $update = array();
-                    if (isset($_POST['appointment_date'])) $update['appointment_date'] = sanitize_text_field($_POST['appointment_date']);
-                    if (isset($_POST['appointment_time'])) $update['appointment_time'] = sanitize_text_field($_POST['appointment_time']);
-                    if (isset($_POST['appointment_type'])) $update['appointment_type'] = sanitize_text_field($_POST['appointment_type']);
-                    if (isset($_POST['status'])) $update['status'] = sanitize_text_field($_POST['status']);
-                    $update['client_data'] = wp_json_encode($client_data);
-                    TS_Appointment_Database::update_appointment($id, $update);
-                    // Redirect back to avoid resubmit
-                    wp_redirect(admin_url('admin.php?page=ts-appointment&tab=appointments&updated=1'));
-                    exit;
-                }
-            }
-            include TS_APPOINTMENT_DIR . 'templates/admin-appointment-edit.php';
-            return;
-        }
-
         $appointments = TS_Appointment_Database::get_appointments();
 
         include TS_APPOINTMENT_DIR . 'templates/admin-appointments.php';
