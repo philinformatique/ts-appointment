@@ -134,6 +134,11 @@
                     $required = !empty($field['required']);
                     $visible_locations = isset($field['visible_locations']) && is_array($field['visible_locations']) ? $field['visible_locations'] : array();
                     $placeholder = isset($field['placeholder']) ? esc_attr($field['placeholder']) : '';
+                    // If this field is the client address and it is conditional to specific locations,
+                    // ensure it is treated as required when shown for those locations.
+                    if ($key === 'client_address' && !empty($visible_locations)) {
+                        $required = true;
+                    }
                     $req = $required ? ' required' : '';
                     $reqMark = $required ? ' <span class="required">*</span>' : '';
                     $data_vis = '';
