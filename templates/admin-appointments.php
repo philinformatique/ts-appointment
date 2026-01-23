@@ -105,7 +105,7 @@
                                     $k = $col['key'] ?? '';
                                     $val = isset($client_data[$k]) ? $client_data[$k] : '';
                                     if (is_array($val)) $val = implode(', ', $val);
-                                    echo '<td>' . esc_html($val) . '</td>';
+                                    echo '<td>' . esc_html($val) . 'test</td>';
                                 }
                             } 
                         ?>
