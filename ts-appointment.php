@@ -516,16 +516,7 @@ class TS_Appointment {
         if (!empty($locations)) {
             echo '<div class="form-group">
                 <label for="appointment_type">' . esc_html__('Lieu', 'ts-appointment') . '</label>
-                <select name="appointment_type" id="appointment_type">';
-            foreach ($locations as $loc) {
-                $loc_key = isset($loc['key']) ? sanitize_key($loc['key']) : '';
-                $loc_label = isset($loc['label']) ? sanitize_text_field($loc['label']) : $loc_key;
-                if ($loc_key) {
-                    $sel = ($loc_key === $current_location) ? ' selected' : '';
-                    echo '<option value="' . esc_attr($loc_key) . '"' . $sel . '>' . esc_html($loc_label) . '</option>';
-                }
-            }
-            echo '</select>
+                <p>' . esc_html($appointment->appointment_type ?? 'home') . '</p>
             </div>';
         }
 
@@ -554,21 +545,16 @@ class TS_Appointment {
             }
         }
 
-        // Date/time selection
+        // Date/time selection - Affichage seulement
         echo '<div class="form-group">
-            <label for="appointment_date">' . esc_html__('Nouvelle date (optionnel)', 'ts-appointment') . '</label>
-            <input type="date" name="appointment_date" id="appointment_date" value="' . esc_attr($appointment->appointment_date) . '" min="' . esc_attr(date('Y-m-d')) . '" />
-        </div>
-        <div class="form-group">
-            <label for="appointment_time">' . esc_html__('Nouvelle heure (optionnel)', 'ts-appointment') . '</label>
-            <select name="appointment_time" id="appointment_time">
-                <option value="' . esc_attr($appointment->appointment_time) . '">' . esc_html($appointment->appointment_time) . ' (actuel)</option>
-            </select>
+            <label>' . esc_html__('Date et heure', 'ts-appointment') . '</label>
+            <p>' . esc_html(date_i18n(get_option('ts_appointment_date_format', 'j/m/Y') . ' ' . get_option('ts_appointment_time_format', 'H:i'), strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) . '</p>
         </div>
 
-        <p style="font-size: 12px; color: #999; margin-bottom: 20px;">
-            ' . esc_html__('Si vous changez la date ou l\'heure, votre rendez-vous devra être à nouveau confirmé par notre équipe.', 'ts-appointment') . '
-        </p>
+        <div class="info-box" style="background: #fff3cd; border-left-color: #ffc107;">
+            <strong style="color: #856404;">' . esc_html__('À savoir:', 'ts-appointment') . '</strong><br>
+            ' . esc_html__('Si vous souhaitez modifier la date, l\'heure ou le lieu de votre rendez-vous, veuillez nous contacter directement ou annuler ce rendez-vous et en prendre un nouveau.', 'ts-appointment') . '
+        </div>
 
         <button type="submit" class="btn btn-primary">' . esc_html__('Enregistrer les modifications', 'ts-appointment') . '</button>
         </form>
@@ -576,95 +562,7 @@ class TS_Appointment {
 
     <script>
     (function() {
-        var dateInput = document.getElementById("appointment_date");
-        var timeSelect = document.getElementById("appointment_time");
-        var locationSelect = document.getElementById("appointment_type");
         var editForm = document.getElementById("edit-form");
-        var serviceId = ' . intval($appointment->service_id) . ';
-        var currentTime = "' . esc_js($appointment->appointment_time) . '";
-
-        // Toggle field visibility based on location
-        function updateFieldVisibility() {
-            var selectedLocation = locationSelect ? locationSelect.value : \"\";
-            var fieldGroups = document.querySelectorAll(\".form-group[data-locations]\");
-            fieldGroups.forEach(function(group) {
-                var allowedLocations = (group.getAttribute(\"data-locations\") || \"\").split(\",\");
-                if (allowedLocations.indexOf(selectedLocation) >= 0) {
-                    group.classList.remove(\"hidden\");
-                } else {
-                    group.classList.add(\"hidden\");
-                }
-            });
-        }
-
-        // Validate required fields for selected location
-        function validateLocationFields() {
-            var selectedLocation = locationSelect ? locationSelect.value : \"\";
-            var fieldGroups = document.querySelectorAll(\".form-group[data-locations]\");
-            var missingFields = [];
-
-            fieldGroups.forEach(function(group) {
-                var allowedLocations = (group.getAttribute(\"data-locations\") || \"\").split(\",\");
-                var isVisibleForLocation = allowedLocations.indexOf(selectedLocation) >= 0;
-                
-                if (isVisibleForLocation && !group.classList.contains(\"hidden\")) {
-                    var inputs = group.querySelectorAll(\"input[required], textarea[required], select[required]\");
-                    inputs.forEach(function(input) {
-                        if (!input.value || input.value.trim() === \"\") {
-                            missingFields.push(input.id || input.name);
-                        }
-                    });
-                }
-            });
-
-            return missingFields.length === 0 ? null : missingFields;
-        }
-
-        function loadSlots() {
-            var date = dateInput.value;
-            if (!date) return;
-
-            fetch("' . esc_url(rest_url('ts-appointment/v1/available-slots')) . '?service_id=" + serviceId + "&date=" + date, {
-                headers: { "X-WP-Nonce": "' . esc_js(wp_create_nonce('wp_rest')) . '" }
-            })
-            .then(res => res.json())
-            .then(slots => {
-                timeSelect.innerHTML = \"\";
-                if (slots.length === 0) {
-                    timeSelect.innerHTML = \"<option value=\\\"\\\">' . esc_js(__('Aucun créneau disponible', 'ts-appointment')) . '</option>\";
-                    return;
-                }
-                slots.forEach(slot => {
-                    var opt = document.createElement(\"option\");
-                    opt.value = slot;
-                    opt.textContent = slot;
-                    if (slot === currentTime) opt.textContent += \" (actuel)\";
-                    timeSelect.appendChild(opt);
-                });
-            });
-        }
-
-        // Form submission validation
-        if (editForm) {
-            editForm.addEventListener(\"submit\", function(e) {
-                var missingFields = validateLocationFields();
-                if (missingFields && missingFields.length > 0) {
-                    e.preventDefault();
-                    alert(\"' . esc_js(__('Veuillez remplir les champs requis pour ce lieu:', 'ts-appointment')) . ' \" + missingFields.join(\", \"));
-                    return false;
-                }
-            });
-        }
-
-        if (locationSelect) {
-            locationSelect.addEventListener(\"change\", function() {
-                updateFieldVisibility();
-                validateLocationFields(); // Check if required fields are now filled/empty
-            });
-            updateFieldVisibility(); // Initial update
-        }
-        dateInput.addEventListener(\"change\", loadSlots);
-        loadSlots();
     })();
     </script>
 </body>
