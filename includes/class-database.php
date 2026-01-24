@@ -596,10 +596,12 @@ class TS_Appointment_Database {
         $min_booking_hours = intval(get_option('ts_appointment_min_booking_hours', 0));
 
         $available = array();
-        $appointments = $wpdb->get_col($wpdb->prepare(
-            "SELECT appointment_time FROM $appointments_table 
-            WHERE service_id = %d AND appointment_date = %s AND status != 'cancelled'",
-            $service_id,
+        // Fetch all appointments for the date (slots are global); keep service duration for accurate blocking
+        $appointments = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.appointment_time, a.service_id, s.duration AS service_duration
+             FROM $appointments_table a
+             LEFT JOIN {$wpdb->prefix}ts_appointment_services s ON s.id = a.service_id
+             WHERE a.appointment_date = %s AND a.status != 'cancelled'",
             $date
         ));
 
@@ -646,24 +648,22 @@ class TS_Appointment_Database {
                     continue;
                 }
                 
-                // Vérifier les conflits internes (rendez-vous déjà pris)
-                $has_internal_conflict = in_array($time_str, $appointments, true);
-                
-                // Vérifier si ce créneau est trop proche d'un autre rendez-vous (buffer)
-                if (!$has_internal_conflict && $appointment_buffer > 0) {
-                    $start_ts = $slot_dt->getTimestamp();
-                    $end_ts_with_buffer = $start_ts + $slot_duration + $appointment_buffer;
-                    
-                    foreach ($appointments as $booked_time) {
-                        $booked_dt = new DateTime($date . ' ' . $booked_time, $tz);
-                        $booked_start = $booked_dt->getTimestamp();
-                        $booked_end = $booked_start + $slot_duration + $appointment_buffer;
-                        
-                        // Vérifier le chevauchement incluant le buffer
-                        if ($start_ts < $booked_end && $end_ts_with_buffer > $booked_start) {
-                            $has_internal_conflict = true;
-                            break;
-                        }
+                // Vérifier les conflits internes (rendez-vous déjà pris) + buffer global
+                $has_internal_conflict = false;
+                $start_ts = $slot_dt->getTimestamp();
+                $candidate_end_with_buffer = $start_ts + $slot_duration + $appointment_buffer;
+
+                foreach ($appointments as $appt) {
+                    $booked_dt = new DateTime($date . ' ' . $appt->appointment_time, $tz);
+                    $booked_start = $booked_dt->getTimestamp();
+                    $booked_duration = isset($appt->service_duration) ? max(5, intval($appt->service_duration)) * 60 : $slot_duration;
+                    $booked_end_with_buffer = $booked_start + $booked_duration + $appointment_buffer;
+
+                    // Chevauchement si début candidat avant fin+buffer du rendez-vous existant
+                    // et fin candidat+buffer après début du rendez-vous existant
+                    if ($start_ts < $booked_end_with_buffer && $candidate_end_with_buffer > $booked_start) {
+                        $has_internal_conflict = true;
+                        break;
                     }
                 }
 
