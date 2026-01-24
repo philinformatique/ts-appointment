@@ -594,6 +594,7 @@ class TS_Appointment_Database {
         // Read the pause setting using the correct option key; fallback to legacy if needed
         $buffer_minutes = get_option('ts_appointment_appointment_buffer', get_option('ts_appointment_buffer', 0));
         $appointment_buffer = intval($buffer_minutes) * 60; // Convertir en secondes
+        ts_appointment_log('TS Appointment get_available_slots: buffer_minutes=' . intval($buffer_minutes) . ', buffer_seconds=' . $appointment_buffer . ', min_booking_hours=' . intval(get_option('ts_appointment_min_booking_hours', 0)), 'debug');
         $min_booking_hours = intval(get_option('ts_appointment_min_booking_hours', 0));
 
         $available = array();
@@ -605,6 +606,11 @@ class TS_Appointment_Database {
              WHERE a.appointment_date = %s AND a.status != 'cancelled'",
             $date
         ));
+        if (is_array($appointments)) {
+            foreach ($appointments as $appt) {
+                ts_appointment_log('TS Appointment get_available_slots: existing appt time=' . $appt->appointment_time . ' service_id=' . $appt->service_id . ' duration=' . (isset($appt->service_duration) ? $appt->service_duration : 'n/a'), 'debug');
+            }
+        }
 
         // Vérifier les conflits Google Calendar si la synchro est activée
         $google_conflicts = array();
@@ -664,6 +670,7 @@ class TS_Appointment_Database {
                     // et fin candidat+buffer après début du rendez-vous existant
                     if ($start_ts < $booked_end_with_buffer && $candidate_end_with_buffer > $booked_start) {
                         $has_internal_conflict = true;
+                        ts_appointment_log('TS Appointment buffer conflict: candidate=' . $time_str . ' start_ts=' . $start_ts . ' cand_end_buff=' . $candidate_end_with_buffer . ' booked_start=' . $booked_start . ' booked_end_buff=' . $booked_end_with_buffer . ' booked_time=' . $appt->appointment_time . ' booked_dur=' . $booked_duration . ' buffer=' . $appointment_buffer, 'debug');
                         break;
                     }
                 }
