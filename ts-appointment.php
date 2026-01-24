@@ -508,7 +508,9 @@ class TS_Appointment {
 
         <form method="post" action="' . esc_url(admin_url('admin-post.php?action=ts_appointment_edit_public')) . '" id="edit-form">
             <input type="hidden" name="appointment_id" value="' . esc_attr($id) . '" />';
-            if (!empty($nonce)) echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '" />';
+            // Generate nonce for POST verification
+            $post_nonce = wp_create_nonce('ts_appointment_edit_' . $id);
+            echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($post_nonce) . '" />';
             if (!empty($et)) echo '<input type="hidden" name="et" value="' . esc_attr($et) . '" />';
             echo '<input type="hidden" name="save_edit" value="1" />';
 
