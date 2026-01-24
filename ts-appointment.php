@@ -371,14 +371,26 @@ class TS_Appointment {
             $post_nonce = isset($_POST['_wpnonce']) ? sanitize_text_field($_POST['_wpnonce']) : '';
             $post_et = isset($_POST['et']) ? sanitize_text_field($_POST['et']) : '';
 
+            // Debug logging
+            error_log('=== POST Edit Form Debug ===');
+            error_log('post_id: ' . $post_id);
+            error_log('post_nonce: ' . $post_nonce);
+            error_log('post_et: ' . $post_et);
+            error_log('save_edit: ' . (isset($_POST['save_edit']) ? $_POST['save_edit'] : 'NOT SET'));
+
             $verified_post = false;
             if ($post_id && $post_nonce && wp_verify_nonce($post_nonce, 'ts_appointment_edit_' . $post_id)) {
                 $verified_post = true;
+                error_log('Verification: NONCE SUCCESS');
             } elseif ($post_id && $post_et && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_edit_token($post_id, $post_et)) {
                 $verified_post = true;
+                error_log('Verification: TOKEN SUCCESS');
+            } else {
+                error_log('Verification: FAILED - nonce_valid=' . ($post_nonce ? wp_verify_nonce($post_nonce, 'ts_appointment_edit_' . $post_id) : 'false'));
             }
 
             if (!$post_id || !$verified_post) {
+                error_log('Dying with: Autorisation de modification invalide.');
                 wp_die(__('Autorisation de modification invalide.', 'ts-appointment'));
             }
 
@@ -582,6 +594,21 @@ class TS_Appointment {
     <script>
     (function() {
         var editForm = document.getElementById("edit-form");
+
+        // Remove required on hidden groups to avoid HTML5 blocking submission
+        var hiddenGroups = document.querySelectorAll('.form-group.hidden');
+        hiddenGroups.forEach(function(group) {
+            group.querySelectorAll('input, select, textarea').forEach(function(el) {
+                el.removeAttribute('required');
+            });
+        });
+
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                // Debug only; keep form submission intact
+                console.log('Form submitted!');
+            });
+        }
     })();
     </script>
 </body>
