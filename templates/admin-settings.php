@@ -64,7 +64,7 @@
                 <tr>
                     <th scope="row"><label for="appointment_buffer"><?php echo esc_html__('Temps de pause après un rendez-vous', 'ts-appointment'); ?></label></th>
                     <td>
-                        <input type="number" id="appointment_buffer" name="appointment_buffer" value="<?php echo esc_attr(get_option('ts_appointment_buffer', 0)); ?>" class="small-text" min="0"> <?php echo esc_html__('minutes', 'ts-appointment'); ?>
+                        <input type="number" id="appointment_buffer" name="appointment_buffer" value="<?php echo esc_attr(get_option('ts_appointment_appointment_buffer', 0)); ?>" class="small-text" min="0"> <?php echo esc_html__('minutes', 'ts-appointment'); ?>
                         <p class="description"><?php echo esc_html__('Temps de pause automatique ajouté après chaque rendez-vous (0 pour désactiver)', 'ts-appointment'); ?></p>
                     </td>
                 </tr>
