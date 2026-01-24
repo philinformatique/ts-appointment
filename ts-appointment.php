@@ -596,17 +596,17 @@ class TS_Appointment {
         var editForm = document.getElementById("edit-form");
 
         // Remove required on hidden groups to avoid HTML5 blocking submission
-        var hiddenGroups = document.querySelectorAll('.form-group.hidden');
+        var hiddenGroups = document.querySelectorAll(".form-group.hidden");
         hiddenGroups.forEach(function(group) {
-            group.querySelectorAll('input, select, textarea').forEach(function(el) {
-                el.removeAttribute('required');
+            group.querySelectorAll("input, select, textarea").forEach(function(el) {
+                el.removeAttribute("required");
             });
         });
 
         if (editForm) {
-            editForm.addEventListener('submit', function(e) {
+            editForm.addEventListener("submit", function(e) {
                 // Debug only; keep form submission intact
-                console.log('Form submitted!');
+                console.log("Form submitted!");
             });
         }
     })();
