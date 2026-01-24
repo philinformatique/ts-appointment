@@ -514,10 +514,27 @@ class TS_Appointment {
 
         // Location selector
         if (!empty($locations)) {
+            // Find current location info to display its note
+            $current_location_label = $current_location;
+            $current_location_note = '';
+            foreach ($locations as $loc) {
+                if (isset($loc['key']) && $loc['key'] === $current_location) {
+                    $current_location_label = isset($loc['label']) ? $loc['label'] : $current_location;
+                    $current_location_note = isset($loc['note']) ? $loc['note'] : '';
+                    break;
+                }
+            }
+            
             echo '<div class="form-group">
-                <label for="appointment_type">' . esc_html__('Lieu', 'ts-appointment') . '</label>
-                <p>' . esc_html($appointment->appointment_type ?? 'home') . '</p>
-            </div>';
+                <label>' . esc_html__('Lieu', 'ts-appointment') . '</label>
+                <p><strong>' . esc_html($current_location_label) . '</strong></p>';
+            
+            // Display location note if it exists
+            if (!empty($current_location_note)) {
+                echo '<p style="font-size: 13px; color: #555; margin-top: 6px; font-style: italic;">' . wp_kses_post($current_location_note) . '</p>';
+            }
+            
+            echo '</div>';
         }
 
         // Render form fields from schema
