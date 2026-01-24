@@ -26,6 +26,46 @@ class TS_Appointment_Email {
         }
         return '';
     }
+
+    /**
+     * Resolve the client's email even if the schema key changed.
+     */
+    public static function get_client_email($appointment) {
+        $email = self::get_client_value($appointment, 'client_email');
+        if (!empty($email) && is_email($email)) return $email;
+
+        $client_data = array();
+        if (!empty($appointment->client_data)) {
+            $decoded = json_decode($appointment->client_data, true);
+            if (is_array($decoded)) {
+                $client_data = $decoded;
+            }
+        }
+
+        // Try the first email-type field from the schema
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        if (is_array($form_schema) && is_array($client_data)) {
+            foreach ($form_schema as $f) {
+                if (($f['type'] ?? '') === 'email') {
+                    $k = $f['key'] ?? '';
+                    if ($k && !empty($client_data[$k]) && is_email($client_data[$k])) {
+                        return $client_data[$k];
+                    }
+                }
+            }
+        }
+
+        // Generic fallback: any value that looks like an email
+        if (is_array($client_data)) {
+            foreach ($client_data as $v) {
+                if (is_string($v) && is_email($v)) {
+                    return $v;
+                }
+            }
+        }
+
+        return '';
+    }
     
     public static function send_booking_notification($appointment) {
         $service = TS_Appointment_Database::get_service($appointment->service_id);
@@ -65,7 +105,7 @@ class TS_Appointment_Email {
 
         // Create a log entry (pending)
         $log_id = 0;
-        $client_email = self::get_client_value($appointment, 'client_email');
+        $client_email = self::get_client_email($appointment);
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
@@ -123,7 +163,7 @@ class TS_Appointment_Email {
         }
 
         $log_id = 0;
-        $client_email = self::get_client_value($appointment, 'client_email');
+        $client_email = self::get_client_email($appointment);
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
@@ -211,7 +251,10 @@ class TS_Appointment_Email {
         );
 
         $log_id = 0;
-        $client_email = self::get_client_value($appointment, 'client_email');
+        $client_email = self::get_client_email($appointment);
+        if (empty($client_email)) {
+            ts_appointment_log('TS Appointment: client email missing for cancellation, appointment ' . ($appointment->id ?? 'n/a'), 'warning');
+        }
         if (class_exists('TS_Appointment_Database')) {
             $log_id = TS_Appointment_Database::insert_log(array(
                 'appointment_id' => $appointment->id ?? null,
@@ -481,12 +524,22 @@ class TS_Appointment_Email {
             // Special placeholders: cancel URL/button (allow HTML for button)
             if (!empty($context['appointment_id'])) {
                 $appt_id = intval($context['appointment_id']);
+                $color_primary = get_option('ts_appointment_color_primary', '#007cba');
+
+                // Cancel button/url placeholders
                 $cancel_url = self::get_cancel_url($appt_id);
                 $body = str_replace('{cancel_url}', esc_url($cancel_url), $body);
                 $btn_text = __('Annuler le rendez-vous', 'ts-appointment');
                 $button_html = '<a href="' . esc_url($cancel_url) . '" style="display:inline-block;background:#c0392b;color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none;">' . esc_html($btn_text) . '</a>';
                 // allow raw HTML for cancel button placeholder
                 $body = str_replace('{cancel_button}', $button_html, $body);
+
+                // Edit button/url placeholders for admins
+                $edit_url = admin_url('admin.php?page=ts-appointment-list&edit_id=' . $appt_id);
+                $body = str_replace('{edit_url}', esc_url($edit_url), $body);
+                $edit_text = __('Modifier le rendez-vous', 'ts-appointment');
+                $edit_button_html = '<a href="' . esc_url($edit_url) . '" style="display:inline-block;background:' . esc_attr($color_primary) . ';color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none;">' . esc_html($edit_text) . '</a>';
+                $body = str_replace('{edit_button}', $edit_button_html, $body);
             }
             return $body ?? '';
         }

@@ -25,7 +25,7 @@ if (!defined('ABSPATH')) {
                     if (!empty($f['key'])) $placeholders[] = '{' . esc_html($f['key']) . '}';
                 }
             }
-            $common = array('{service_name}','{appointment_date}','{appointment_time}','{location}','{business_name}','{business_address}','{appointment_id}','{cancel_url}','{cancel_button}','{reason}');
+            $common = array('{service_name}','{appointment_date}','{appointment_time}','{location}','{business_name}','{business_address}','{appointment_id}','{cancel_url}','{cancel_button}','{edit_url}','{edit_button}','{reason}');
             $placeholders = array_merge($placeholders, $common);
             echo implode(', ', array_map(function($p){ return '<strong>' . $p . '</strong>'; }, $placeholders));
             ?>
@@ -108,6 +108,8 @@ if (!defined('ABSPATH')) {
             $sample['{reason}'] = 'Raison fournie';
             $sample['{cancel_url}'] = 'https://example.com/cancel?appt=12345';
             $sample['{cancel_button}'] = '[Bouton d\'annulation]';
+            $sample['{edit_url}'] = admin_url('admin.php?page=ts-appointment-list&edit_id=12345');
+            $sample['{edit_button}'] = '[Bouton d\'édition]';
             echo wp_json_encode($sample);
         ?>;
         Object.keys(sample).forEach(function(p){
@@ -142,6 +144,8 @@ if (!defined('ABSPATH')) {
             $live_sample['{location}'] = 'Au cabinet';
             $live_sample['{business_name}'] = get_bloginfo('name');
             $live_sample['{business_address}'] = get_option('ts_appointment_business_address');
+            $live_sample['{edit_url}'] = admin_url('admin.php?page=ts-appointment-list&edit_id=12345');
+            $live_sample['{edit_button}'] = '[Bouton d\'édition]';
             echo wp_json_encode($live_sample);
         ?>;
 
