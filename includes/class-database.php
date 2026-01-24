@@ -591,8 +591,9 @@ class TS_Appointment_Database {
         $slot_duration = max(5, intval($service->duration)) * 60;
         
         // Récupérer le buffer (pause après rendez-vous) et délai minimum de réservation
-        // Read the pause setting using the correct option key
-        $appointment_buffer = intval(get_option('ts_appointment_appointment_buffer', 0)) * 60; // Convertir en secondes
+        // Read the pause setting using the correct option key; fallback to legacy if needed
+        $buffer_minutes = get_option('ts_appointment_appointment_buffer', get_option('ts_appointment_buffer', 0));
+        $appointment_buffer = intval($buffer_minutes) * 60; // Convertir en secondes
         $min_booking_hours = intval(get_option('ts_appointment_min_booking_hours', 0));
 
         $available = array();
