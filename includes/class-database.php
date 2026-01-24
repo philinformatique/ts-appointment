@@ -679,12 +679,21 @@ class TS_Appointment_Database {
                 $start_dt = new DateTime($date . ' ' . $time_str, $tz);
                 $start_ts = $start_dt->getTimestamp();
                 $end_ts_candidate = $start_ts + $slot_duration;
+                $candidate_end_with_buffer = $end_ts_candidate + $appointment_buffer;
                 $has_google_conflict = false;
                 if (!empty($google_conflicts)) {
                     foreach ($google_conflicts as $event) {
-                            if ($start_ts < $event['end_ts'] && $end_ts_candidate > $event['start_ts']) {
+                            $event_start = isset($event['start_ts']) ? intval($event['start_ts']) : 0;
+                            $event_end = isset($event['end_ts']) ? intval($event['end_ts']) : 0;
+                            $event_start_with_buffer = $event_start - $appointment_buffer;
+                            $event_end_with_buffer = $event_end + $appointment_buffer;
+
+                            if ($start_ts < $event_end_with_buffer && $candidate_end_with_buffer > $event_start_with_buffer) {
                                 $has_google_conflict = true;
-                                ts_appointment_log('TS Appointment: Time ' . $time_str . ' conflicts with Google event', 'debug');
+                                ts_appointment_log(
+                                    'TS Appointment: Time ' . $time_str . ' conflicts with Google event (buffered) start=' . $event_start_with_buffer . ' end=' . $event_end_with_buffer . ' cand_start=' . $start_ts . ' cand_end_buff=' . $candidate_end_with_buffer,
+                                    'debug'
+                                );
                                 break;
                             }
                     }
