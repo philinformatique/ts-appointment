@@ -534,8 +534,8 @@ class TS_Appointment_Email {
                 // allow raw HTML for cancel button placeholder
                 $body = str_replace('{cancel_button}', $button_html, $body);
 
-                // Edit button/url placeholders for admins
-                $edit_url = admin_url('admin.php?page=ts-appointment-list&edit_id=' . $appt_id);
+                // Edit button/url placeholders for clients (public, token-protected)
+                $edit_url = self::get_edit_url($appt_id);
                 $body = str_replace('{edit_url}', esc_url($edit_url), $body);
                 $edit_text = __('Modifier le rendez-vous', 'ts-appointment');
                 $edit_button_html = '<a href="' . esc_url($edit_url) . '" style="display:inline-block;background:' . esc_attr($color_primary) . ';color:#fff;padding:10px 16px;border-radius:4px;text-decoration:none;">' . esc_html($edit_text) . '</a>';
@@ -703,6 +703,56 @@ class TS_Appointment_Email {
         $nonce = wp_create_nonce('ts_appointment_cancel_' . $id);
         $token = self::generate_cancel_token_for_appointment($appt);
         return admin_url('admin-post.php?action=ts_appointment_cancel_public&appointment_id=' . $id . '&_wpnonce=' . $nonce . '&ct=' . rawurlencode($token));
+    }
+
+    /**
+     * Generate a stable edit token for an appointment (same mechanism as cancel token).
+     */
+    public static function generate_edit_token_for_appointment($appointment_or_id) {
+        // Reuse the same token generation logic as cancel
+        return self::generate_cancel_token_for_appointment($appointment_or_id);
+    }
+
+    /** Validate an edit token for the given appointment ID */
+    public static function validate_edit_token($appointment_id, $token) {
+        if (empty($appointment_id) || empty($token)) return false;
+        $expected = self::generate_edit_token_for_appointment(intval($appointment_id));
+        if (empty($expected)) return false;
+        if (!hash_equals($expected, $token)) return false;
+
+        // Allow editing only if appointment hasn't started yet
+        $appt = TS_Appointment_Database::get_appointment(intval($appointment_id));
+        if (!$appt) return false;
+        try {
+            $tz_string = get_option('ts_appointment_timezone') ?: (get_option('timezone_string') ?: 'UTC');
+            $tz = new DateTimeZone($tz_string);
+            $appt_dt = DateTime::createFromFormat('Y-m-d H:i', trim($appt->appointment_date . ' ' . $appt->appointment_time), $tz);
+            if (!$appt_dt) {
+                $appt_dt = new DateTime($appt->appointment_date . ' ' . $appt->appointment_time, $tz);
+            }
+            $now = new DateTime('now', $tz);
+            if ($now >= $appt_dt) return false;
+        } catch (Exception $e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get a canonical edit URL for an appointment (public, token-protected).
+     */
+    public static function get_edit_url($appointment_or_id) {
+        if (is_numeric($appointment_or_id)) {
+            $appt = TS_Appointment_Database::get_appointment(intval($appointment_or_id));
+        } else {
+            $appt = $appointment_or_id;
+        }
+        if (empty($appt) || empty($appt->id)) return '';
+        $id = intval($appt->id);
+        $nonce = wp_create_nonce('ts_appointment_edit_' . $id);
+        $token = self::generate_edit_token_for_appointment($appt);
+        return admin_url('admin-post.php?action=ts_appointment_edit_public&appointment_id=' . $id . '&_wpnonce=' . $nonce . '&et=' . rawurlencode($token));
     }
 
     /**

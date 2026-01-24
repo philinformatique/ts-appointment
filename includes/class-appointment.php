@@ -143,6 +143,16 @@ class TS_Appointment_Manager {
         if ($dt <= $now) {
             return array('valid' => false, 'message' => __('Date invalide', 'ts-appointment'));
         }
+        
+        // Vérifier le délai minimum de réservation
+        $min_booking_hours = intval(get_option('ts_appointment_min_booking_hours', 0));
+        if ($min_booking_hours > 0) {
+            $min_booking_time = clone $now;
+            $min_booking_time->modify('+' . $min_booking_hours . ' hours');
+            if ($dt < $min_booking_time) {
+                return array('valid' => false, 'message' => sprintf(__('Les réservations doivent être faites au moins %d heures à l\'avance', 'ts-appointment'), $min_booking_hours));
+            }
+        }
 
         // Vérifier le lieu (type) selon la configuration des lieux
         $locs = json_decode(get_option('ts_appointment_locations_config'), true);

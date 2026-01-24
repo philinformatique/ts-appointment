@@ -59,6 +59,9 @@ class TS_Appointment {
         // Public cancel endpoint (admin-post) for client cancellation links
         add_action('admin_post_ts_appointment_cancel_public', array($this, 'handle_public_cancel'));
         add_action('admin_post_nopriv_ts_appointment_cancel_public', array($this, 'handle_public_cancel'));
+        // Public edit endpoint (admin-post) for client edit links
+        add_action('admin_post_ts_appointment_edit_public', array($this, 'handle_public_edit'));
+        add_action('admin_post_nopriv_ts_appointment_edit_public', array($this, 'handle_public_edit'));
     }
 
     public static function handle_public_cancel() {
@@ -328,6 +331,259 @@ class TS_Appointment {
             <p>' . esc_html__('Vous recevrez une confirmation par email une fois l\'annulation traitée.', 'ts-appointment') . '</p>
         </div>
     </div>
+</body>
+</html>';
+        exit;
+    }
+
+    public static function handle_public_edit() {
+        $id = isset($_REQUEST['appointment_id']) ? intval($_REQUEST['appointment_id']) : 0;
+        $nonce = isset($_REQUEST['_wpnonce']) ? sanitize_text_field($_REQUEST['_wpnonce']) : '';
+        $et = isset($_REQUEST['et']) ? sanitize_text_field($_REQUEST['et']) : '';
+        
+        // Verify GET request
+        $verified_get = false;
+        if ($id && $nonce && wp_verify_nonce($nonce, 'ts_appointment_edit_' . $id)) {
+            $verified_get = true;
+        } elseif ($id && $et && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_edit_token($id, $et)) {
+            $verified_get = true;
+        }
+
+        if (!$id || !$verified_get) {
+            wp_die(__('Lien de modification invalide ou expiré.', 'ts-appointment'));
+        }
+
+        $appointment = TS_Appointment_Database::get_appointment($id);
+        if (!$appointment) {
+            wp_die(__('Rendez-vous introuvable.', 'ts-appointment'));
+        }
+
+        // Decode client_data
+        $client_data = array();
+        if (!empty($appointment->client_data)) {
+            $decoded = json_decode($appointment->client_data, true);
+            if (is_array($decoded)) $client_data = $decoded;
+        }
+
+        // Handle POST submission
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_edit'])) {
+            $post_id = isset($_POST['appointment_id']) ? intval($_POST['appointment_id']) : 0;
+            $post_nonce = isset($_POST['_wpnonce']) ? sanitize_text_field($_POST['_wpnonce']) : '';
+            $post_et = isset($_POST['et']) ? sanitize_text_field($_POST['et']) : '';
+
+            $verified_post = false;
+            if ($post_id && $post_nonce && wp_verify_nonce($post_nonce, 'ts_appointment_edit_' . $post_id)) {
+                $verified_post = true;
+            } elseif ($post_id && $post_et && class_exists('TS_Appointment_Email') && TS_Appointment_Email::validate_edit_token($post_id, $post_et)) {
+                $verified_post = true;
+            }
+
+            if (!$post_id || !$verified_post) {
+                wp_die(__('Autorisation de modification invalide.', 'ts-appointment'));
+            }
+
+            // Build updated client_data from form schema
+            $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+            $new_client_data = array();
+            if (is_array($form_schema)) {
+                foreach ($form_schema as $f) {
+                    $k = $f['key'] ?? '';
+                    if (!$k) continue;
+                    if (isset($_POST[$k])) {
+                        $val = $_POST[$k];
+                        switch ($f['type'] ?? 'text') {
+                            case 'email':
+                                $new_client_data[$k] = sanitize_email($val);
+                                break;
+                            case 'textarea':
+                                $new_client_data[$k] = wp_kses_post(wp_unslash($val));
+                                break;
+                            default:
+                                $new_client_data[$k] = sanitize_text_field($val);
+                        }
+                    }
+                }
+            }
+
+            $update = array('client_data' => wp_json_encode($new_client_data));
+
+            // Check if date/time changed
+            $new_date = isset($_POST['appointment_date']) ? sanitize_text_field($_POST['appointment_date']) : '';
+            $new_time = isset($_POST['appointment_time']) ? sanitize_text_field($_POST['appointment_time']) : '';
+            $date_changed = false;
+
+            if ($new_date && $new_time && ($new_date !== $appointment->appointment_date || $new_time !== $appointment->appointment_time)) {
+                // Validate new slot is available
+                $service_id = $appointment->service_id;
+                $available = TS_Appointment_Database::get_available_slots($service_id, $new_date);
+                if (!in_array($new_time, $available)) {
+                    wp_die(__('Le créneau sélectionné n\'est plus disponible. Veuillez en choisir un autre.', 'ts-appointment'));
+                }
+                $update['appointment_date'] = $new_date;
+                $update['appointment_time'] = $new_time;
+                $update['status'] = 'pending'; // Reset to pending for admin review
+                $date_changed = true;
+            }
+
+            TS_Appointment_Database::update_appointment($post_id, $update);
+
+            // Redirect to success page
+            wp_safe_redirect(site_url('/?ts_appointment_updated=1&date_changed=' . ($date_changed ? '1' : '0')));
+            exit;
+        }
+
+        // Display edit form
+        $business_name = get_option('ts_appointment_business_name');
+        $color_primary = get_option('ts_appointment_color_primary', '#007cba');
+        $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
+        $service = TS_Appointment_Database::get_service($appointment->service_id);
+        
+        echo '<!doctype html>
+<html lang="' . esc_attr(get_bloginfo('language')) . '">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>' . esc_html__('Modifier mon rendez-vous', 'ts-appointment') . '</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 40px;
+        }
+        .header { text-align: center; margin-bottom: 32px; }
+        .icon { font-size: 48px; margin-bottom: 16px; }
+        h1 { font-size: 28px; color: #222; margin-bottom: 8px; font-weight: 600; }
+        .subtitle { color: #666; font-size: 14px; margin-top: 8px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; font-size: 14px; }
+        input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="time"], textarea, select {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: ' . esc_attr($color_primary) . '; }
+        textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        .btn {
+            padding: 12px 24px; border: none; border-radius: 4px; font-size: 16px; font-weight: 600;
+            cursor: pointer; text-align: center; transition: all 0.3s ease; display: inline-block;
+        }
+        .btn-primary {
+            background: ' . esc_attr($color_primary) . '; color: white; width: 100%;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .info-box {
+            background: #f9f9f9; border-left: 4px solid ' . esc_attr($color_primary) . ';
+            padding: 16px; margin-bottom: 24px; border-radius: 4px;
+        }
+        .info-box strong { color: ' . esc_attr($color_primary) . '; }
+        @media (max-width: 480px) { .container { padding: 24px; } h1 { font-size: 24px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">✏️</div>
+            <h1>' . esc_html__('Modifier mon rendez-vous', 'ts-appointment') . '</h1>
+            <p class="subtitle">' . esc_html__('Mettez à jour vos informations ci-dessous', 'ts-appointment') . '</p>
+        </div>
+
+        <div class="info-box">
+            <strong>' . esc_html__('Rendez-vous actuel:', 'ts-appointment') . '</strong><br>
+            ' . esc_html($service ? $service->name : '') . '<br>
+            ' . esc_html(date_i18n(get_option('ts_appointment_date_format', 'j/m/Y') . ' ' . get_option('ts_appointment_time_format', 'H:i'), strtotime($appointment->appointment_date . ' ' . $appointment->appointment_time))) . '
+        </div>
+
+        <form method="post" action="' . esc_url(admin_url('admin-post.php?action=ts_appointment_edit_public')) . '" id="edit-form">
+            <input type="hidden" name="appointment_id" value="' . esc_attr($id) . '" />';
+            if (!empty($nonce)) echo '<input type="hidden" name="_wpnonce" value="' . esc_attr($nonce) . '" />';
+            if (!empty($et)) echo '<input type="hidden" name="et" value="' . esc_attr($et) . '" />';
+            echo '<input type="hidden" name="save_edit" value="1" />';
+
+        // Render form fields from schema
+        if (is_array($form_schema)) {
+            foreach ($form_schema as $f) {
+                $k = $f['key'] ?? '';
+                $label = $f['label'] ?? $k;
+                $type = $f['type'] ?? 'text';
+                $required = !empty($f['required']);
+                $value = $client_data[$k] ?? '';
+
+                echo '<div class="form-group">';
+                echo '<label for="' . esc_attr($k) . '">' . esc_html($label) . ($required ? ' *' : '') . '</label>';
+                
+                if ($type === 'textarea') {
+                    echo '<textarea name="' . esc_attr($k) . '" id="' . esc_attr($k) . '"' . ($required ? ' required' : '') . '>' . esc_textarea($value) . '</textarea>';
+                } else {
+                    echo '<input type="' . esc_attr($type) . '" name="' . esc_attr($k) . '" id="' . esc_attr($k) . '" value="' . esc_attr($value) . '"' . ($required ? ' required' : '') . ' />';
+                }
+                echo '</div>';
+            }
+        }
+
+        // Date/time selection
+        echo '<div class="form-group">
+            <label for="appointment_date">' . esc_html__('Nouvelle date (optionnel)', 'ts-appointment') . '</label>
+            <input type="date" name="appointment_date" id="appointment_date" value="' . esc_attr($appointment->appointment_date) . '" min="' . esc_attr(date('Y-m-d')) . '" />
+        </div>
+        <div class="form-group">
+            <label for="appointment_time">' . esc_html__('Nouvelle heure (optionnel)', 'ts-appointment') . '</label>
+            <select name="appointment_time" id="appointment_time">
+                <option value="' . esc_attr($appointment->appointment_time) . '">' . esc_html($appointment->appointment_time) . ' (actuel)</option>
+            </select>
+        </div>
+
+        <p style="font-size: 12px; color: #999; margin-bottom: 20px;">
+            ' . esc_html__('Si vous changez la date ou l\'heure, votre rendez-vous devra être à nouveau confirmé par notre équipe.', 'ts-appointment') . '
+        </p>
+
+        <button type="submit" class="btn btn-primary">' . esc_html__('Enregistrer les modifications', 'ts-appointment') . '</button>
+        </form>
+    </div>
+
+    <script>
+    (function() {
+        var dateInput = document.getElementById("appointment_date");
+        var timeSelect = document.getElementById("appointment_time");
+        var serviceId = ' . intval($appointment->service_id) . ';
+        var currentTime = "' . esc_js($appointment->appointment_time) . '";
+
+        function loadSlots() {
+            var date = dateInput.value;
+            if (!date) return;
+
+            fetch("' . esc_url(rest_url('ts-appointment/v1/available-slots')) . '?service_id=" + serviceId + "&date=" + date, {
+                headers: { "X-WP-Nonce": "' . esc_js(wp_create_nonce('wp_rest')) . '" }
+            })
+            .then(res => res.json())
+            .then(slots => {
+                timeSelect.innerHTML = "";
+                if (slots.length === 0) {
+                    timeSelect.innerHTML = "<option value=\"\">' . esc_js(__('Aucun créneau disponible', 'ts-appointment')) . '</option>";
+                    return;
+                }
+                slots.forEach(slot => {
+                    var opt = document.createElement("option");
+                    opt.value = slot;
+                    opt.textContent = slot;
+                    if (slot === currentTime) opt.textContent += " (actuel)";
+                    timeSelect.appendChild(opt);
+                });
+            });
+        }
+
+        dateInput.addEventListener("change", loadSlots);
+        loadSlots();
+    })();
+    </script>
 </body>
 </html>';
         exit;

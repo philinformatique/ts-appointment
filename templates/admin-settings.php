@@ -61,7 +61,20 @@
                         <input type="number" id="max_days_ahead" name="max_days_ahead" value="<?php echo esc_attr(get_option('ts_appointment_max_days_ahead', 30)); ?>" class="small-text">
                     </td>
                 </tr>
-                <!-- 'Délai entre rendez-vous' removed per request -->
+                <tr>
+                    <th scope="row"><label for="appointment_buffer"><?php echo esc_html__('Temps de pause après un rendez-vous', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="number" id="appointment_buffer" name="appointment_buffer" value="<?php echo esc_attr(get_option('ts_appointment_buffer', 0)); ?>" class="small-text" min="0"> <?php echo esc_html__('minutes', 'ts-appointment'); ?>
+                        <p class="description"><?php echo esc_html__('Temps de pause automatique ajouté après chaque rendez-vous (0 pour désactiver)', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="min_booking_hours"><?php echo esc_html__('Prochain rendez-vous disponible dans minimum', 'ts-appointment'); ?></label></th>
+                    <td>
+                        <input type="number" id="min_booking_hours" name="min_booking_hours" value="<?php echo esc_attr(get_option('ts_appointment_min_booking_hours', 0)); ?>" class="small-text" min="0"> <?php echo esc_html__('heures', 'ts-appointment'); ?>
+                        <p class="description"><?php echo esc_html__('Délai minimum avant qu\'un client puisse réserver (0 pour réservation immédiate)', 'ts-appointment'); ?></p>
+                    </td>
+                </tr>
                 <tr>
                     <th scope="row"><label for="date_format"><?php echo esc_html__('Format de date', 'ts-appointment'); ?></label></th>
                     <td>

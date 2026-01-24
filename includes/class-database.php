@@ -287,7 +287,8 @@ class TS_Appointment_Database {
             'business_address' => '',
             'business_phone' => '',
             'timezone' => get_option('timezone_string', 'UTC'),
-            //'appointment_buffer' => 15, // removed from settings UI
+            'appointment_buffer' => 0,
+            'min_booking_hours' => 0,
             'max_days_ahead' => 30,
             'date_format' => 'j/m/Y',
             'time_format' => 'H:i',
@@ -588,6 +589,10 @@ class TS_Appointment_Database {
             return array();
         }
         $slot_duration = max(5, intval($service->duration)) * 60;
+        
+        // Récupérer le buffer (pause après rendez-vous) et délai minimum de réservation
+        $appointment_buffer = intval(get_option('ts_appointment_buffer', 0)) * 60; // Convertir en secondes
+        $min_booking_hours = intval(get_option('ts_appointment_min_booking_hours', 0));
 
         $available = array();
         $appointments = $wpdb->get_col($wpdb->prepare(
@@ -615,6 +620,13 @@ class TS_Appointment_Database {
         }
 
         $tz = new DateTimeZone(get_option('ts_appointment_timezone', 'UTC'));
+        
+        // Calculer le délai minimum pour les réservations
+        $now = new DateTime('now', $tz);
+        $min_booking_time = clone $now;
+        if ($min_booking_hours > 0) {
+            $min_booking_time->modify('+' . $min_booking_hours . ' hours');
+        }
 
         foreach ($slots as $slot) {
             $current_time = strtotime($slot->start_time);
@@ -626,8 +638,33 @@ class TS_Appointment_Database {
             while ($current_time < $end_time) {
                 $time_str = date('H:i', $current_time);
                 
+                // Vérifier le délai minimum de réservation
+                $slot_dt = new DateTime($date . ' ' . $time_str, $tz);
+                if ($slot_dt < $min_booking_time) {
+                    $current_time += $slot_interval;
+                    continue;
+                }
+                
                 // Vérifier les conflits internes (rendez-vous déjà pris)
                 $has_internal_conflict = in_array($time_str, $appointments, true);
+                
+                // Vérifier si ce créneau est trop proche d'un autre rendez-vous (buffer)
+                if (!$has_internal_conflict && $appointment_buffer > 0) {
+                    $start_ts = $slot_dt->getTimestamp();
+                    $end_ts_with_buffer = $start_ts + $slot_duration + $appointment_buffer;
+                    
+                    foreach ($appointments as $booked_time) {
+                        $booked_dt = new DateTime($date . ' ' . $booked_time, $tz);
+                        $booked_start = $booked_dt->getTimestamp();
+                        $booked_end = $booked_start + $slot_duration + $appointment_buffer;
+                        
+                        // Vérifier le chevauchement incluant le buffer
+                        if ($start_ts < $booked_end && $end_ts_with_buffer > $booked_start) {
+                            $has_internal_conflict = true;
+                            break;
+                        }
+                    }
+                }
 
                 // Vérifier les conflits Google Calendar
                 $start_dt = new DateTime($date . ' ' . $time_str, $tz);

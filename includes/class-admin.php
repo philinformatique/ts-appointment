@@ -817,6 +817,8 @@ class TS_Appointment_Admin {
             'business_phone',
             'timezone',
             'max_days_ahead',
+            'appointment_buffer',
+            'min_booking_hours',
             'date_format',
             'time_format',
             'color_primary',
@@ -856,6 +858,9 @@ class TS_Appointment_Admin {
                 if (in_array($setting, array('locations_config', 'form_schema'), true)) {
                     $raw = wp_unslash($_POST[$setting]);
                     update_option('ts_appointment_' . $setting, $raw);
+                } elseif (in_array($setting, array('appointment_buffer', 'min_booking_hours', 'max_days_ahead', 'reminder_hours', 'ics_duration', 'ics_reminder_minutes'), true)) {
+                    // Numeric fields - accept 0 as valid value
+                    update_option('ts_appointment_' . $setting, intval($_POST[$setting]));
                 } else {
                     update_option('ts_appointment_' . $setting, sanitize_text_field($_POST[$setting]));
                 }
