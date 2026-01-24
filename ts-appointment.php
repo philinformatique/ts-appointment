@@ -425,17 +425,6 @@ class TS_Appointment {
                 $date_changed = true;
             }
 
-            // Update location if provided and valid
-            $posted_location = isset($_POST['appointment_type']) ? sanitize_text_field($_POST['appointment_type']) : '';
-            if ($posted_location && is_array($locations)) {
-                foreach ($locations as $loc) {
-                    if (!empty($loc['key']) && $loc['key'] === $posted_location) {
-                        $update['appointment_type'] = $posted_location;
-                        break;
-                    }
-                }
-            }
-
             TS_Appointment_Database::update_appointment($post_id, $update);
 
             // Redirect to success page
@@ -448,8 +437,9 @@ class TS_Appointment {
         $color_primary = get_option('ts_appointment_color_primary', '#007cba');
         $form_schema = json_decode(get_option('ts_appointment_form_schema'), true);
         $service = TS_Appointment_Database::get_service($appointment->service_id);
-        $locations_json = get_option('ts_appointment_locations_config');
-        $locations = json_decode($locations_json, true);
+        $locations_json = get_option('ts_appointment_locations_config', '[]');
+        $locations = json_decode($locations_json, true) ?: array();
+        $current_location = $appointment->appointment_type ?? 'home';
         
         echo '<!doctype html>
 <html lang="' . esc_attr(get_bloginfo('language')) . '">
@@ -478,6 +468,7 @@ class TS_Appointment {
         h1 { font-size: 28px; color: #222; margin-bottom: 8px; font-weight: 600; }
         .subtitle { color: #666; font-size: 14px; margin-top: 8px; }
         .form-group { margin-bottom: 20px; }
+        .form-group.hidden { display: none; }
         label { display: block; font-weight: 600; margin-bottom: 8px; color: #333; font-size: 14px; }
         input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="time"], textarea, select {
             width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
@@ -522,20 +513,23 @@ class TS_Appointment {
             echo '<input type="hidden" name="save_edit" value="1" />';
 
         // Location selector
-        if (is_array($locations) && !empty($locations)) {
-            echo '<div class="form-group">';
-            echo '<label>' . esc_html__('Lieu du rendez-vous', 'ts-appointment') . ' *</label>';
+        if (!empty($locations)) {
+            echo '<div class="form-group">
+                <label for="appointment_type">' . esc_html__('Lieu', 'ts-appointment') . '</label>
+                <select name="appointment_type" id="appointment_type">';
             foreach ($locations as $loc) {
-                if (empty($loc['key'])) continue;
-                $checked = ($appointment->appointment_type === $loc['key']) ? 'checked' : '';
-                echo '<label style="display:block;margin:4px 0;">';
-                echo '<input type="radio" name="appointment_type" value="' . esc_attr($loc['key']) . '" ' . $checked . ' required> ' . esc_html($loc['label'] ?? $loc['key']);
-                echo '</label>';
+                $loc_key = isset($loc['key']) ? sanitize_key($loc['key']) : '';
+                $loc_label = isset($loc['label']) ? sanitize_text_field($loc['label']) : $loc_key;
+                if ($loc_key) {
+                    $sel = ($loc_key === $current_location) ? ' selected' : '';
+                    echo '<option value="' . esc_attr($loc_key) . '"' . $sel . '>' . esc_html($loc_label) . '</option>';
+                }
             }
-            echo '</div>';
+            echo '</select>
+            </div>';
         }
 
-        // Render form fields from schema with location-based visibility
+        // Render form fields from schema
         if (is_array($form_schema)) {
             foreach ($form_schema as $f) {
                 $k = $f['key'] ?? '';
@@ -544,25 +538,17 @@ class TS_Appointment {
                 $required = !empty($f['required']);
                 $value = $client_data[$k] ?? '';
                 $visible_locations = isset($f['visible_locations']) && is_array($f['visible_locations']) ? $f['visible_locations'] : array();
-                $data_vis = !empty($visible_locations) ? ' data-visible-locations="' . esc_attr(join(',', $visible_locations)) . '"' : '';
-                $data_req = $required ? ' data-original-required="1"' : '';
+                // If visible_locations is set and not empty, show only for matching locations; otherwise always show
+                $is_visible = empty($visible_locations) ? 'true' : 'false';
+                $locations_attr = !empty($visible_locations) ? ' data-locations="' . esc_attr(implode(',', $visible_locations)) . '"' : '';
 
-                echo '<div class="form-group"' . $data_vis . $data_req . '>';
+                echo '<div class="form-group' . ($is_visible === 'false' ? ' hidden' : '') . '"' . $locations_attr . '>';
                 echo '<label for="' . esc_attr($k) . '">' . esc_html($label) . ($required ? ' *' : '') . '</label>';
                 
                 if ($type === 'textarea') {
                     echo '<textarea name="' . esc_attr($k) . '" id="' . esc_attr($k) . '"' . ($required ? ' required' : '') . '>' . esc_textarea($value) . '</textarea>';
-                } elseif ($type === 'select' && !empty($f['options']) && is_array($f['options'])) {
-                    echo '<select name="' . esc_attr($k) . '" id="' . esc_attr($k) . '"' . ($required ? ' required' : '') . '>';
-                    echo '<option value="">' . esc_html__('Sélectionner', 'ts-appointment') . '</option>';
-                    foreach ($f['options'] as $opt) {
-                        $sel = ($opt === $value) ? 'selected' : '';
-                        echo '<option value="' . esc_attr($opt) . '" ' . $sel . '>' . esc_html($opt) . '</option>';
-                    }
-                    echo '</select>';
                 } else {
-                    $html_type = in_array($type, array('text','email','tel','number','date','time')) ? $type : 'text';
-                    echo '<input type="' . esc_attr($html_type) . '" name="' . esc_attr($k) . '" id="' . esc_attr($k) . '" value="' . esc_attr($value) . '"' . ($required ? ' required' : '') . ' />';
+                    echo '<input type="' . esc_attr($type) . '" name="' . esc_attr($k) . '" id="' . esc_attr($k) . '" value="' . esc_attr($value) . '"' . ($required ? ' required' : '') . ' />';
                 }
                 echo '</div>';
             }
@@ -592,38 +578,46 @@ class TS_Appointment {
     (function() {
         var dateInput = document.getElementById("appointment_date");
         var timeSelect = document.getElementById("appointment_time");
+        var locationSelect = document.getElementById("appointment_type");
+        var editForm = document.getElementById("edit-form");
         var serviceId = ' . intval($appointment->service_id) . ';
         var currentTime = "' . esc_js($appointment->appointment_time) . '";
-        var locationInputs = document.querySelectorAll("input[name=\"appointment_type\"]");
 
-        function toggleFieldVisibility() {
-            var selected = document.querySelector("input[name=\"appointment_type\"]:checked");
-            var key = selected ? selected.value : '';
-            var groups = document.querySelectorAll('[data-visible-locations]');
-            groups.forEach(function(g) {
-                var vis = g.getAttribute('data-visible-locations');
-                if (!vis || vis.trim() === '') {
-                    // restore required when globally visible
-                    if (g.getAttribute('data-original-required')) {
-                        g.querySelectorAll('input, textarea, select').forEach(function(el){ el.required = true; });
-                    }
-                    g.style.display = '';
-                    return;
-                }
-                var allowed = vis.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-                var isAllowed = key && allowed.indexOf(key) !== -1;
-                if (isAllowed) {
-                    g.style.display = '';
-                    if (g.getAttribute('data-original-required')) {
-                        g.querySelectorAll('input, textarea, select').forEach(function(el){ el.required = true; });
-                    }
+        // Toggle field visibility based on location
+        function updateFieldVisibility() {
+            var selectedLocation = locationSelect ? locationSelect.value : \"\";
+            var fieldGroups = document.querySelectorAll(\".form-group[data-locations]\");
+            fieldGroups.forEach(function(group) {
+                var allowedLocations = (group.getAttribute(\"data-locations\") || \"\").split(\",\");
+                if (allowedLocations.indexOf(selectedLocation) >= 0) {
+                    group.classList.remove(\"hidden\");
                 } else {
-                    g.style.display = 'none';
-                    g.querySelectorAll('input, textarea, select').forEach(function(el){
-                        try { el.required = false; el.value = ''; } catch(e){}
+                    group.classList.add(\"hidden\");
+                }
+            });
+        }
+
+        // Validate required fields for selected location
+        function validateLocationFields() {
+            var selectedLocation = locationSelect ? locationSelect.value : \"\";
+            var fieldGroups = document.querySelectorAll(\".form-group[data-locations]\");
+            var missingFields = [];
+
+            fieldGroups.forEach(function(group) {
+                var allowedLocations = (group.getAttribute(\"data-locations\") || \"\").split(\",\");
+                var isVisibleForLocation = allowedLocations.indexOf(selectedLocation) >= 0;
+                
+                if (isVisibleForLocation && !group.classList.contains(\"hidden\")) {
+                    var inputs = group.querySelectorAll(\"input[required], textarea[required], select[required]\");
+                    inputs.forEach(function(input) {
+                        if (!input.value || input.value.trim() === \"\") {
+                            missingFields.push(input.id || input.name);
+                        }
                     });
                 }
             });
+
+            return missingFields.length === 0 ? null : missingFields;
         }
 
         function loadSlots() {
@@ -635,30 +629,41 @@ class TS_Appointment {
             })
             .then(res => res.json())
             .then(slots => {
-                timeSelect.innerHTML = "";
+                timeSelect.innerHTML = \"\";
                 if (slots.length === 0) {
-                    timeSelect.innerHTML = "<option value=\"\">' . esc_js(__('Aucun créneau disponible', 'ts-appointment')) . '</option>";
+                    timeSelect.innerHTML = \"<option value=\\\"\\\">' . esc_js(__('Aucun créneau disponible', 'ts-appointment')) . '</option>\";
                     return;
                 }
                 slots.forEach(slot => {
-                    var opt = document.createElement("option");
+                    var opt = document.createElement(\"option\");
                     opt.value = slot;
                     opt.textContent = slot;
-                    if (slot === currentTime) opt.textContent += " (actuel)";
+                    if (slot === currentTime) opt.textContent += \" (actuel)\";
                     timeSelect.appendChild(opt);
                 });
             });
         }
 
-        // Wire location change to conditional fields
-        if (locationInputs && locationInputs.length) {
-            locationInputs.forEach(function(input){
-                input.addEventListener('change', toggleFieldVisibility);
+        // Form submission validation
+        if (editForm) {
+            editForm.addEventListener(\"submit\", function(e) {
+                var missingFields = validateLocationFields();
+                if (missingFields && missingFields.length > 0) {
+                    e.preventDefault();
+                    alert(\"' . esc_js(__('Veuillez remplir les champs requis pour ce lieu:', 'ts-appointment')) . ' \" + missingFields.join(\", \"));
+                    return false;
+                }
             });
-            toggleFieldVisibility();
         }
 
-        dateInput.addEventListener("change", loadSlots);
+        if (locationSelect) {
+            locationSelect.addEventListener(\"change\", function() {
+                updateFieldVisibility();
+                validateLocationFields(); // Check if required fields are now filled/empty
+            });
+            updateFieldVisibility(); // Initial update
+        }
+        dateInput.addEventListener(\"change\", loadSlots);
         loadSlots();
     })();
     </script>
