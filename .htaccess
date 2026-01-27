@@ -1,6 +1,6 @@
 # TS Appointment Security Configuration
 
-# Empêcher l'accès direct aux fichiers PHP
+# Empêcher l'accès direct aux fichiers PHP sauf le fichier principal
 <FilesMatch "\.php$">
     Order Allow,Deny
     Deny from all
@@ -12,17 +12,16 @@
     Allow from all
 </Files>
 
+# Autoriser l'accès aux assets (JS, CSS, images)
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
 # Empêcher l'accès au répertoire
 <IfModule mod_autoindex.c>
     Options -Indexes
 </IfModule>
-
-# Désactiver l'exécution des scripts
-<FilesMatch "\.(js|css|txt)$">
-    <IfModule mod_headers.c>
-        Header set Content-Security-Policy "default-src 'self'"
-    </IfModule>
-</FilesMatch>
 
 # Compression
 <IfModule mod_deflate.c>
@@ -38,6 +37,18 @@
     ExpiresByType image/jpeg "access plus 1 year"
     ExpiresByType image/gif "access plus 1 year"
     ExpiresByType image/png "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+</IfModule>
+
+# Cache Headers
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|css)$">
+        Header set Cache-Control "public, max-age=2592000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
 </IfModule>
 
 # Protection XMLRPC
