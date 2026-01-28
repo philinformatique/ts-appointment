@@ -98,7 +98,9 @@
                         ?>
                     </select>
                 </div>
-                // Price display (placed between location-extra blocks and the date/time row)
+
+                <?php
+                // Price display (placed after service selector and before date/time row)
                 echo '<div id="service-price" class="service-price-large" style="display:none;"></div>';
                 ?>
 
