@@ -93,10 +93,19 @@
                             }
                             $data_prices = esc_attr(wp_json_encode($price_map));
                             $readable = esc_html(ts_appointment_format_duration(intval($service->duration)));
-                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '" data-duration-readable="' . esc_attr($readable) . '">' . esc_html($service->name) . '</option>';
+                            $description = !empty($service->description) ? $service->description : '';
+                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '" data-duration-readable="' . esc_attr($readable) . '" data-description="' . esc_attr($description) . '">' . esc_html($service->name) . '</option>';
                         }
                         ?>
                     </select>
+                </div>
+
+                <!-- Service description (displayed after service selection) -->
+                <div id="service-description" class="location-extra" style="display:none;">
+                    <div class="info-box">
+                        <div class="info-icon">ℹ️</div>
+                        <div class="info-content" id="service-description-content"></div>
+                    </div>
                 </div>
 
                 <?php

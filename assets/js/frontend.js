@@ -49,6 +49,7 @@
             $('.form-actions').hide();
             $priceBox.hide();
             $('#ts-client-info').hide();
+            $('#service-description').hide();
 
             // When a location is selected, reveal service selector (filtered) and extras
             $(document).on('change.reveal', 'input[name="appointment_type"]', function(){
@@ -249,6 +250,7 @@
         $serviceId.on('change', function() {
             $appointmentDate.trigger('change');
             updatePriceDisplay();
+            updateServiceDescription();
         });
 
         // Appliquer les bornes min/max sur la date
@@ -498,6 +500,22 @@
 
                 $card.show();
             });
+        }
+
+        // Update service description display
+        function updateServiceDescription() {
+            const $descriptionBlock = $('#service-description');
+            const $descriptionContent = $('#service-description-content');
+            const selectedOption = $serviceId.find('option:selected');
+            const description = selectedOption.data('description');
+
+            if (!description || description.trim() === '') {
+                $descriptionBlock.hide();
+                return;
+            }
+
+            $descriptionContent.html(description);
+            $descriptionBlock.show();
         }
 
         // Remplir les créneaux horaires

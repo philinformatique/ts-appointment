@@ -22,7 +22,22 @@ if (!defined('ABSPATH')) {
             </tr>
             <tr>
                 <th><label for="service_description"><?php _e('Description', 'ts-appointment'); ?></label></th>
-                <td><textarea id="service_description" name="service_description" class="large-text" rows="3"><?php echo !empty($edit_service) ? esc_textarea($edit_service->description) : ''; ?></textarea></td>
+                <td>
+                    <?php 
+                    $description_content = !empty($edit_service) ? $edit_service->description : '';
+                    wp_editor($description_content, 'service_description', array(
+                        'textarea_name' => 'service_description',
+                        'textarea_rows' => 10,
+                        'media_buttons' => false,
+                        'teeny' => false,
+                        'quicktags' => true,
+                        'tinymce' => array(
+                            'toolbar1' => 'bold,italic,underline,strikethrough,bullist,numlist,link,unlink,blockquote,alignleft,aligncenter,alignright,undo,redo',
+                            'toolbar2' => ''
+                        )
+                    ));
+                    ?>
+                </td>
             </tr>
             <tr>
                 <th><label for="service_duration_value"><?php _e('Durée', 'ts-appointment'); ?></label></th>
