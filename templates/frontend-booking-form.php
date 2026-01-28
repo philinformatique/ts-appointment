@@ -103,7 +103,7 @@
                 <!-- Service description (displayed after service selection) -->
                 <div id="service-description" class="location-extra" style="display:none;">
                     <div class="info-box">
-                        <div class="info-icon">ℹ️</div>
+                        <div class="info-icon">i</div>
                         <div class="info-content" id="service-description-content"></div>
                     </div>
                 </div>
