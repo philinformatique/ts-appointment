@@ -717,7 +717,7 @@ class TS_Appointment_Admin {
 
                     $data = array(
                         'name' => sanitize_text_field($_POST['service_name'] ?? ''),
-                        'description' => sanitize_textarea_field($_POST['service_description'] ?? ''),
+                        'description' => wp_kses_post($_POST['service_description'] ?? ''),
                         'duration' => intval($duration_minutes),
                         'price' => !empty($price_by_location) ? wp_json_encode($price_by_location) : '0',
                         'active' => isset($_POST['service_active']) ? 1 : 0,
@@ -754,7 +754,7 @@ class TS_Appointment_Admin {
 
                     $data = array(
                         'name' => sanitize_text_field($_POST['service_name'] ?? ''),
-                        'description' => sanitize_textarea_field($_POST['service_description'] ?? ''),
+                        'description' => wp_kses_post($_POST['service_description'] ?? ''),
                         'duration' => intval($duration_minutes),
                         'price' => !empty($price_by_location) ? wp_json_encode($price_by_location) : '0',
                         'active' => isset($_POST['service_active']) ? 1 : 0,
