@@ -30,13 +30,16 @@
 
         // Initialize progressive reveal UI and mobile interactions
         function initProgressiveReveal() {
-            // Hide everything except service selector initially
+            // Hide everything except location selector initially
             const $allGroups = $form.find('.form-group, .form-row, .location-extra, .form-actions, .service-price-large');
             $allGroups.hide();
-            $serviceId.closest('.form-group').show();
-
+            
+            // Show location selector first
             const $locGroup = $('#ts-locations').closest('.form-group');
-            $locGroup.hide();
+            $locGroup.show();
+            
+            // Hide service selector until location is chosen
+            $serviceId.closest('.form-group').hide();
             $locationExtras.hide();
 
             // Hide date/time and time slots
@@ -47,25 +50,34 @@
             $priceBox.hide();
             $('#ts-client-info').hide();
 
-            // Reveal locations after selecting a service
-            $serviceId.on('change.reveal', function(){
-                $locGroup.show();
-                $locGroup[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-
-            // When a location is selected, reveal extras and date
+            // When a location is selected, reveal service selector (filtered) and extras
             $(document).on('change.reveal', 'input[name="appointment_type"]', function(){
                 const key = $(this).val();
+                
+                // Filter services by location
+                filterServicesByLocation(key);
+                
+                // Show service selector
+                $serviceId.closest('.form-group').show();
+                $serviceId.closest('.form-group')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Show location extras
                 $locationExtras.hide();
                 const $target = $('#loc-extra-' + key);
                 if ($target.length) {
                     $target.show();
                     $target.find('[required]').prop('required', true);
-                    $target[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
-                $appointmentDate.closest('.form-row').show();
-                //$appointmentDate[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
                 toggleClientInfoVisibility(key);
+            });
+            
+            // Reveal date/time after selecting a service
+            $serviceId.on('change.reveal', function(){
+                if ($(this).val()) {
+                    $appointmentDate.closest('.form-row').show();
+                    $appointmentDate.closest('.form-row')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             });
 
             // client-info visibility and date/time label helpers are declared below
@@ -359,8 +371,6 @@
 
             if (!prices) {
                 $priceBox.hide();
-                // Show all locations if no prices available
-                filterLocationsByService(null);
                 return;
             }
 
@@ -368,8 +378,6 @@
             // Do not display price until a location has been selected
             if (!locationKey) {
                 $priceBox.hide();
-                // still filter locations using prices but do not show amount
-                filterLocationsByService(prices);
                 return;
             }
             let priceVal = null;
@@ -401,11 +409,65 @@
             }
 
             $priceBox.text(display + durationText).show();
-
-            // Filter location cards according to prices: hide locations explicitly priced at 0
-            filterLocationsByService(prices);
         }
 
+        // Filter services to show only those with price > 0 for selected location
+        function filterServicesByLocation(locationKey) {
+            const $options = $serviceId.find('option');
+            let hasVisibleOptions = false;
+            
+            $options.each(function() {
+                const $option = $(this);
+                
+                // Always show the placeholder option
+                if (!$option.val()) {
+                    return;
+                }
+                
+                const pricesRaw = $option.data('prices');
+                if (!pricesRaw) {
+                    $option.hide();
+                    return;
+                }
+                
+                let prices = null;
+                try {
+                    prices = typeof pricesRaw === 'object' ? pricesRaw : JSON.parse(pricesRaw);
+                } catch (e) {
+                    $option.hide();
+                    return;
+                }
+                
+                // Get price for this location
+                let priceVal = null;
+                if (prices.hasOwnProperty(locationKey)) {
+                    priceVal = prices[locationKey];
+                } else if (prices.hasOwnProperty('default')) {
+                    priceVal = prices['default'];
+                }
+                
+                // Hide if price is 0 or not set
+                const num = parseFloat(priceVal);
+                if (isNaN(num) || num === 0) {
+                    $option.hide();
+                    // If this was selected, clear selection
+                    if ($option.is(':selected')) {
+                        $serviceId.val('');
+                    }
+                } else {
+                    $option.show();
+                    hasVisibleOptions = true;
+                }
+            });
+            
+            // If no services available for this location, show a message
+            if (!hasVisibleOptions) {
+                showMessage(__('Aucun service disponible pour ce lieu'), 'error');
+            } else {
+                showMessage('', '');
+            }
+        }
+        
         // Hide location cards where the selected service price for that location is exactly 0
         function filterLocationsByService(prices) {
             const $cards = $('#ts-locations .location-card');
