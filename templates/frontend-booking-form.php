@@ -26,27 +26,6 @@
                     </div>
                 </div>
 
-                <!-- Service selection (filtered by location price > 0) -->
-                <div class="form-group">
-                    <label for="service_id"><?php echo esc_html__('Service', 'ts-appointment'); ?> <span class="required">*</span></label>
-                    <select id="service_id" name="service_id" required>
-                        <option value=""><?php echo esc_html__('Sélectionner un service', 'ts-appointment'); ?></option>
-                        <?php
-                        $services = TS_Appointment_Database::get_services();
-                        foreach ($services as $service) {
-                            $price_raw = $service->price;
-                            $price_map = json_decode($price_raw, true);
-                            if (!is_array($price_map)) {
-                                $price_map = array('default' => is_numeric($price_raw) ? floatval($price_raw) : $price_raw);
-                            }
-                            $data_prices = esc_attr(wp_json_encode($price_map));
-                            $readable = esc_html(ts_appointment_format_duration(intval($service->duration)));
-                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '" data-duration-readable="' . esc_attr($readable) . '">' . esc_html($service->name) . '</option>';
-                        }
-                        ?>
-                    </select>
-                </div>
-
                 <?php
                 $business_address = get_option('ts_appointment_business_address');
                 foreach ($locations as $loc) {
@@ -97,6 +76,28 @@
                     }
                     echo '</div>';
                 }
+                ?>
+
+                <!-- Service selection (filtered by location price > 0) -->
+                <div class="form-group">
+                    <label for="service_id"><?php echo esc_html__('Service', 'ts-appointment'); ?> <span class="required">*</span></label>
+                    <select id="service_id" name="service_id" required>
+                        <option value=""><?php echo esc_html__('Sélectionner un service', 'ts-appointment'); ?></option>
+                        <?php
+                        $services = TS_Appointment_Database::get_services();
+                        foreach ($services as $service) {
+                            $price_raw = $service->price;
+                            $price_map = json_decode($price_raw, true);
+                            if (!is_array($price_map)) {
+                                $price_map = array('default' => is_numeric($price_raw) ? floatval($price_raw) : $price_raw);
+                            }
+                            $data_prices = esc_attr(wp_json_encode($price_map));
+                            $readable = esc_html(ts_appointment_format_duration(intval($service->duration)));
+                            echo '<option value="' . esc_attr($service->id) . '" data-prices="' . $data_prices . '" data-duration="' . esc_attr($service->duration) . '" data-duration-readable="' . esc_attr($readable) . '">' . esc_html($service->name) . '</option>';
+                        }
+                        ?>
+                    </select>
+                </div>
                 // Price display (placed between location-extra blocks and the date/time row)
                 echo '<div id="service-price" class="service-price-large" style="display:none;"></div>';
                 ?>
